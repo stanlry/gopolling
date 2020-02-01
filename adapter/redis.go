@@ -39,7 +39,10 @@ func newRedisSubscription(con redis.Conn, log gopolling.Log, roomID string) (gop
 	s := RedisSubscription{
 		con: subcon,
 		log: log,
+		ch:  make(chan gopolling.Message),
 	}
+
+	go s.startListen()
 
 	return &s, nil
 }
@@ -47,44 +50,36 @@ func newRedisSubscription(con redis.Conn, log gopolling.Log, roomID string) (gop
 type RedisSubscription struct {
 	con redis.PubSubConn
 	log gopolling.Log
+	ch  chan gopolling.Message
+}
+
+func (r *RedisSubscription) startListen() {
+	for {
+		switch v := r.con.Receive().(type) {
+		case redis.Message:
+			var msg gopolling.Message
+			if err := json.Unmarshal(v.Data, &msg); err != nil {
+				msg.Error = err
+			}
+			r.ch <- msg
+		case error:
+			var msg gopolling.Message
+			msg.Error = v
+			r.ch <- msg
+		case redis.Subscription:
+			if v.Kind == "unsubscribe" {
+				close(r.ch)
+				if err := r.con.Close(); err != nil {
+					r.log.Errorf("fail to close redis connection, error: %v", err)
+				}
+				return
+			}
+		}
+	}
 }
 
 func (r *RedisSubscription) Receive() <-chan gopolling.Message {
-	ch := make(chan gopolling.Message)
-
-	go func() {
-		var msg gopolling.Message
-	loop:
-		for {
-			switch v := r.con.Receive().(type) {
-			case redis.Message:
-				if err := json.Unmarshal(v.Data, &msg); err != nil {
-					msg.Error = err
-				}
-				break loop
-			case error:
-				msg.Error = v
-				break loop
-			case redis.Subscription:
-				if v.Kind == "unsubscribe" {
-					if err := r.con.Close(); err != nil {
-						r.log.Errorf("fail to close redis connection, error: %v", err)
-					}
-					return
-				}
-			}
-		}
-		ch <- msg
-		// unsubscribe from all channels
-		if err := r.con.Unsubscribe(); err != nil {
-			r.log.Errorf("fail to unsubscribe from redis, error: %v", err)
-		}
-		if err := r.con.Close(); err != nil {
-			r.log.Errorf("fail to close redis connection, error: %v", err)
-		}
-	}()
-
-	return ch
+	return r.ch
 }
 
 func (r *RedisSubscription) Unsubscribe() error {

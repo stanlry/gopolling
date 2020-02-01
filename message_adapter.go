@@ -130,7 +130,7 @@ func safePushToChannel(ch chan Message, message Message) (result bool) {
 }
 
 func (g *GoroutineAdapter) Publish(roomID string, msg Message) error {
-	if val, ok := g.subscribers.Pop(roomID); ok {
+	if val, ok := g.subscribers.Get(roomID); ok {
 		subq := val.(*subQueue)
 		for i := 0; i < subq.Length(); i++ {
 			ch := subq.Get(i)

@@ -32,6 +32,7 @@ func (m *PollingManager) WaitForNotice(ctx context.Context, roomID string, data 
 	if err != nil {
 		return nil, err
 	}
+	defer sub.Unsubscribe()
 
 	tick := time.Tick(m.timeout)
 
@@ -45,14 +46,8 @@ func (m *PollingManager) WaitForNotice(ctx context.Context, roomID string, data 
 wait:
 	select {
 	case <-ctx.Done():
-		if err := sub.Unsubscribe(); err != nil {
-			m.log.Errorf("fail to unsubscribe from adapter, roomID: %v", roomID)
-		}
 		return nil, ErrCancelled
 	case <-tick:
-		if err := sub.Unsubscribe(); err != nil {
-			m.log.Errorf("fail to unsubscribe from adapter, roomID: %v", roomID)
-		}
 		return nil, ErrTimeout
 	case msg := <-sub.Receive():
 		if !compareSelectors(msg.Selector, sel) {

@@ -67,6 +67,7 @@ func TestPollingManagerSelector(t *testing.T) {
 	ch <- Message{Data: data}
 	ch <- Message{Data: data, Selector: sel}
 	mockSub.EXPECT().Receive().Return(ch).Times(2)
+	mockSub.EXPECT().Unsubscribe().Times(1)
 
 	val, err := mgr.WaitForNotice(context.TODO(), "test", nil, sel)
 	if val != data || err != nil {
