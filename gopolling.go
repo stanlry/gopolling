@@ -48,23 +48,18 @@ func NewGoPolling(option Option) GoPolling {
 	}
 }
 
-type DataOption struct {
-	Data     interface{}
-	Selector S
-}
-
 type GoPolling struct {
 	bus         MessageAdapter
 	pollingMgr  PollingManager
 	listenerMgr ListenerManager
 }
 
-func (g *GoPolling) WaitForNotice(ctx context.Context, roomID string, opt *DataOption) (interface{}, error) {
-	if opt != nil {
-		return g.pollingMgr.WaitForNotice(ctx, roomID, opt.Data, opt.Selector)
-	} else {
-		return g.pollingMgr.WaitForNotice(ctx, roomID, nil, S{})
-	}
+func (g *GoPolling) WaitForNotice(ctx context.Context, roomID string, data interface{}) (interface{}, error) {
+	return g.pollingMgr.WaitForNotice(ctx, roomID, data, S{})
+}
+
+func (g *GoPolling) WaitForSelectedNotice(ctx context.Context, roomID string, data interface{}, selector S) (interface{}, error) {
+	return g.pollingMgr.WaitForNotice(ctx, roomID, data, selector)
 }
 
 func (g *GoPolling) SubscribeListener(roomID string, lf ListenerFunc) {
