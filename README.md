@@ -115,6 +115,3 @@ mgr.SubscribeListener(roomID, func(ev gopolling.Event, cb *gopolling.Callback){
     cb.Reply(resp, nil)
 }) 
 ```
-
-### Examples
-* [simple](/examples/simple)
