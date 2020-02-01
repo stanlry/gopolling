@@ -14,14 +14,17 @@ package main
 import (
 	"encoding/json"
 	"github.com/stanlry/gopolling"
-	"log"
+	"github.com/stanlry/gopolling/adapter"
+"log"
 	"net/http"
 	"time"
 )
 
 var room = "test"
 
-var mgr = gopolling.NewGoPolling(gopolling.Option{})
+var mgr = gopolling.NewGoPolling(gopolling.Option{
+    Bus: adapter.NewGoroutineAdapter(),
+})
 
 func main() {
 	http.HandleFunc("/message", func(w http.ResponseWriter, r *http.Request) {
@@ -56,8 +59,8 @@ curl -s localhost/notify?data=[your message here]
 var mgr = gopolling.NewGoPolling(gopolling.Option{ 
     // set the timeout for each request, default 120s   
     Timeout: 1 * time.Minute,  
-    // message bus adapter, default use goroutine, 
-    Adapter: adapter.NewRedisAdapter(":6379", "password"), 
+    // message bus
+    Bus: adapter.NewRedisAdapter(":6379", "password"), 
     // logger interface, currently support zap and logrus, default will not log any error
     Logger: zap.New(), 
 })
@@ -117,6 +120,6 @@ mgr.SubscribeListener(roomID, func(ev gopolling.Event, cb *gopolling.Callback){
     // reply to client immediately if needed
     // Only the matching client will be notified if selector is declared
     resp := []string{"test", "test"}
-    cb.Reply(resp, nil)
+    cb.Notify(resp, nil)
 }) 
 ```
