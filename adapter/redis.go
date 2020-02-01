@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func NewRedisAdapter(uri, password string) gopolling.MessageAdapter {
+func NewRedisAdapter(uri, password string) gopolling.MessageBus {
 	p := RedisAdapter{
 		log: &gopolling.NoOpLog{},
 	}
@@ -54,6 +54,7 @@ type RedisSubscription struct {
 }
 
 func (r *RedisSubscription) startListen() {
+loop:
 	for {
 		switch v := r.con.Receive().(type) {
 		case redis.Message:
@@ -61,20 +62,26 @@ func (r *RedisSubscription) startListen() {
 			if err := json.Unmarshal(v.Data, &msg); err != nil {
 				msg.Error = err
 			}
-			r.ch <- msg
+
+			if !safePushToChannel(r.ch, msg) {
+				break loop
+			}
 		case error:
 			var msg gopolling.Message
 			msg.Error = v
-			r.ch <- msg
+
+			if !safePushToChannel(r.ch, msg) {
+				break loop
+			}
 		case redis.Subscription:
 			if v.Kind == "unsubscribe" {
-				close(r.ch)
-				if err := r.con.Close(); err != nil {
-					r.log.Errorf("fail to close redis connection, error: %v", err)
-				}
-				return
+				break loop
 			}
 		}
+	}
+
+	if err := r.con.Close(); err != nil {
+		r.log.Errorf("fail to close redis connection, error: %v", err)
 	}
 }
 
@@ -83,6 +90,7 @@ func (r *RedisSubscription) Receive() <-chan gopolling.Message {
 }
 
 func (r *RedisSubscription) Unsubscribe() error {
+	close(r.ch)
 	return r.con.Unsubscribe()
 }
 

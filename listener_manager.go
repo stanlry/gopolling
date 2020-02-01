@@ -34,10 +34,10 @@ func (r *Callback) getReplyMsg() *Message {
 
 type ListenerFunc func(Event, *Callback)
 
-func NewListenerManager(adapter MessageAdapter) ListenerManager {
+func NewListenerManager(adapter MessageBus) ListenerManager {
 	return ListenerManager{
 		listeners: make(map[string]elm),
-		adapter:   adapter,
+		bus:       adapter,
 		log:       &NoOpLog{},
 	}
 }
@@ -48,23 +48,27 @@ type ListenerManager struct {
 	listeners map[string]elm
 	m         sync.Mutex
 
-	log     Log
-	adapter MessageAdapter
+	log Log
+	bus MessageBus
+}
+
+func (m *ListenerManager) execListener(roomID string, lf ListenerFunc, ev Event) {
+	r := NewCallback(roomID)
+	lf(ev, &r)
+	if r.notified {
+		msg := r.getReplyMsg()
+		msg.Selector = ev.Selector
+		if err := m.bus.Publish(roomID, *msg); err != nil {
+			m.log.Errorf("fail to publish message, roomID: %v", roomID)
+		}
+	}
 }
 
 func (m *ListenerManager) listen(roomID string, lf ListenerFunc) {
 	for {
 		select {
-		case task := <-m.adapter.Dequeue(roomID):
-			r := NewCallback(roomID)
-			lf(task, &r)
-			if r.notified {
-				msg := r.getReplyMsg()
-				msg.Selector = task.Selector
-				if err := m.adapter.Publish(roomID, *msg); err != nil {
-					m.log.Errorf("fail to publish message, roomID: %v", roomID)
-				}
-			}
+		case event := <-m.bus.Dequeue(roomID):
+			go m.execListener(roomID, lf, event)
 		}
 	}
 }

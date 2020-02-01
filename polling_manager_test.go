@@ -8,7 +8,7 @@ import (
 )
 
 func setupManager(mc *gomock.Controller) (*PollingManager, *MockSubscription) {
-	mockAdapter := NewMockMessageAdapter(mc)
+	mockAdapter := NewMockMessageBus(mc)
 	mockSub := NewMockSubscription(mc)
 
 	mockAdapter.EXPECT().Subscribe(gomock.Any()).Return(mockSub, nil).Times(1)

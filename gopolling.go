@@ -12,44 +12,44 @@ type Option struct {
 	// Long polling client timeout (default 120s)
 	Timeout time.Duration
 
-	// Message and task queue
-	Adapter MessageAdapter
+	// Message Bus
+	Bus MessageBus
 
 	// Logging implementation
 	Logger Log
 }
 
 func NewGoPolling(option Option) GoPolling {
-	var adapter MessageAdapter
+	var bus MessageBus
 
-	if option.Adapter != nil {
-		adapter = option.Adapter
+	if option.Bus != nil {
+		bus = option.Bus
 	} else {
-		adapter = NewGoroutineAdapter()
+		panic("message bus not found")
 	}
 
-	pollingMgr := NewPollingManager(adapter)
+	pollingMgr := NewPollingManager(bus)
 	if option.Timeout != 0 {
 		pollingMgr.timeout = option.Timeout
 	}
 
-	listenerMgr := NewListenerManager(adapter)
+	listenerMgr := NewListenerManager(bus)
 
 	if option.Logger != nil {
 		pollingMgr.log = option.Logger
 		listenerMgr.log = option.Logger
-		adapter.SetLog(option.Logger)
+		bus.SetLog(option.Logger)
 	}
 
 	return GoPolling{
-		bus:         adapter,
+		bus:         bus,
 		pollingMgr:  pollingMgr,
 		listenerMgr: listenerMgr,
 	}
 }
 
 type GoPolling struct {
-	bus         MessageAdapter
+	bus         MessageBus
 	pollingMgr  PollingManager
 	listenerMgr ListenerManager
 }

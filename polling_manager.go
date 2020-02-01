@@ -12,23 +12,23 @@ var (
 	defaultTimeout = 120 * time.Second
 )
 
-func NewPollingManager(adapter MessageAdapter) PollingManager {
+func NewPollingManager(adapter MessageBus) PollingManager {
 	return PollingManager{
-		adapter: adapter,
+		bus:     adapter,
 		timeout: defaultTimeout,
 		log:     &NoOpLog{},
 	}
 }
 
 type PollingManager struct {
-	adapter MessageAdapter
+	bus     MessageBus
 	timeout time.Duration
 
 	log Log
 }
 
 func (m *PollingManager) WaitForNotice(ctx context.Context, roomID string, data interface{}, sel S) (interface{}, error) {
-	sub, err := m.adapter.Subscribe(roomID)
+	sub, err := m.bus.Subscribe(roomID)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (m *PollingManager) WaitForNotice(ctx context.Context, roomID string, data 
 		Data:     data,
 		Selector: sel,
 	}
-	m.adapter.Enqueue(roomID, tk)
+	m.bus.Enqueue(roomID, tk)
 
 wait:
 	select {
