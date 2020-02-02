@@ -12,11 +12,11 @@ go get github.com/stanlry/gopolling
 package main
 
 import (
-	"encoding/json"
-	"github.com/stanlry/gopolling"
-	"github.com/stanlry/gopolling/adapter"
+    "encoding/json"
+    "github.com/stanlry/gopolling"
+    "github.com/stanlry/gopolling/adapter"
     "log"
-	"net/http"
+    "net/http"
 )
 
 var room = "test"
@@ -26,21 +26,21 @@ var mgr = gopolling.NewGoPolling(gopolling.Option{
 })
 
 func main() {
-	http.HandleFunc("/message", func(w http.ResponseWriter, r *http.Request) {
-		data, _ := mgr.WaitForNotice(r.Context(), room, nil)
-		st, _ := json.Marshal(data)
-		w.Write(st)
-	})
-
-	http.HandleFunc("/notify", func(w http.ResponseWriter, r *http.Request) {
-		mgr.Notify(room, gopolling.Message{
-			Data:  r.URL.Query().Get("data"),
-			Error: nil,
-		})
-	})
-
-	log.Println("start serve on :80")
-	log.Fatal(http.ListenAndServe(":80", nil))
+    http.HandleFunc("/message", func(w http.ResponseWriter, r *http.Request) {
+        data, _ := mgr.WaitForNotice(r.Context(), room, nil)
+        st, _ := json.Marshal(data)
+        w.Write(st)
+    })
+    
+    http.HandleFunc("/notify", func(w http.ResponseWriter, r *http.Request) {
+        mgr.Notify(room, gopolling.Message{
+            Data:  r.URL.Query().Get("data"), 
+            Error: nil,
+        })
+    })
+        
+    log.Println("start serve on :80")
+    log.Fatal(http.ListenAndServe(":80", nil))
 }
 ```
 wait for message
@@ -58,8 +58,12 @@ curl -s localhost/notify?data=[your message here]
 var mgr = gopolling.NewGoPolling(gopolling.Option{ 
     // set the timeout for each request, default 120s   
     Timeout: 1 * time.Minute,  
+
     // message bus
-    Bus: adapter.NewRedisAdapter(":6379", "password"), 
+    Bus: adapter.NewGoroutine(),
+    // you can use redis as message bus
+    // Bus: adapter.NewRedisAdapter(":6379", "password"), 
+
     // logger interface, currently support zap and logrus, default will not log any error
     Logger: zap.New(), 
 })
@@ -72,20 +76,19 @@ client that wait for notice from listener or notifier
 val, err := mgr.WaitForNotice(
     // request context
     r.Context(), 
-    // roomID is the classification of message stream
-    roomID, 
+    // room is the classification, clients in the same room will all be notified if no selector is specified
+    room, 
     // send the data to listener, it will be discarded if no listener exist
-    "request data",
+    "data",
 })
 ```
 client that only wait for notice with matched selector
 ```go
 val err := mgr.WaitForSelectedNotice(
     r.Context(),
-    roomID,
+    room,
     "data",
-    // specify client identity in the room, this selector is essential a string map (map[string]string)
-    // at the same time, notifier will have to specify the selector as well
+    // specify client identity in the room, this selector is essential a string map
     gopolling.S{
         "id": "xxx",
         "name": "xxx",
@@ -98,7 +101,7 @@ Notify all the client that have been waiting in the room
 ```go
 mgr.Notify(roomID, gopolling.Message{
     // data being sent to client
-    Data: "notify client",
+    Data: "data to notify client",
     // error
     Error: nil,
     // selector that specify the receiving client, if no client match the selector, message will be discarded
@@ -115,11 +118,9 @@ make the request
 mgr.SubscribeListener(roomID, func(ev gopolling.Event, cb *gopolling.Callback){
     // event data
     xx := ev.Data.(your_struct)
-    // logic here
 
-    // reply to client immediately
-    // you can skip this part if no reply is needed
-    resp := []string{"test", "test"}
+    // reply to client immediately, you can skip this part if no reply is needed
+    resp := []string{"I'm", "data"}
     cb.Reply(resp, nil)
 }) 
 ```
