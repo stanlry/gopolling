@@ -1,3 +1,4 @@
+//go:generate mockgen -destination=message_bus_mock_test.go -package=gopolling -source=message_bus.go
 package gopolling
 
 import (
