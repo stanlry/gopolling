@@ -55,7 +55,7 @@ curl -s localhost/notify?data=[your message here]
 ### Usage
 #### Create Polling Manager
 ```go
-var mgr = gopolling.NewGoPolling(gopolling.Option{ 
+var mgr = gopolling.New(gopolling.Option{ 
     // set the timeout for each request, default 120s   
     Timeout: 1 * time.Minute,  
 
