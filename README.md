@@ -15,9 +15,8 @@ import (
 	"encoding/json"
 	"github.com/stanlry/gopolling"
 	"github.com/stanlry/gopolling/adapter"
-"log"
+    "log"
 	"net/http"
-	"time"
 )
 
 var room = "test"
@@ -79,7 +78,7 @@ val, err := mgr.WaitForNotice(
     "request data",
 })
 ```
-client that only wait for notice with match selector
+client that only wait for notice with matched selector
 ```go
 val err := mgr.WaitForSelectedNotice(
     r.Context(),
@@ -109,7 +108,7 @@ mgr.Notify(roomID, gopolling.Message{
 })
 ```
 #### Event Listener
-Listen to event when request made and reply immediately if possible
+Listen to event when request made and reply immediately if needed
 ```go
 // subscribe listener
 mgr.SubscribeListener(roomID, func(ev gopolling.Event, cb *gopolling.Callback){
