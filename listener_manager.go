@@ -19,7 +19,7 @@ type Callback struct {
 	err      error
 }
 
-func (r *Callback) Notify(data interface{}, err error) {
+func (r *Callback) Reply(data interface{}, err error) {
 	r.notified = true
 	r.data = data
 	r.err = err

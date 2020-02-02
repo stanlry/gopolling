@@ -8,12 +8,12 @@ import (
 )
 
 func setupManager(mc *gomock.Controller) (*PollingManager, *MockSubscription) {
-	mockAdapter := NewMockMessageBus(mc)
+	mockBus := NewMockMessageBus(mc)
 	mockSub := NewMockSubscription(mc)
 
-	mockAdapter.EXPECT().Subscribe(gomock.Any()).Return(mockSub, nil).Times(1)
-	mockAdapter.EXPECT().Enqueue(gomock.Any(), gomock.Any()).Times(1)
-	mgr := NewPollingManager(mockAdapter)
+	mockBus.EXPECT().Subscribe(gomock.Any()).Return(mockSub, nil).Times(1)
+	mockBus.EXPECT().Enqueue(gomock.Any(), gomock.Any()).Times(1)
+	mgr := NewPollingManager(mockBus)
 
 	return &mgr, mockSub
 }
@@ -70,6 +70,31 @@ func TestPollingManager_Selector(t *testing.T) {
 	mockSub.EXPECT().Unsubscribe().Times(1)
 
 	val, err := mgr.WaitForNotice(context.TODO(), "test", nil, sel)
+	if val != data || err != nil {
+		t.Errorf("should have received the message")
+	}
+}
+
+func TestPollingManager_ReplyID(t *testing.T) {
+	mc := gomock.NewController(t)
+	defer mc.Finish()
+
+	data := "test data"
+	ch := make(chan Message, 2)
+
+	mockBus := NewMockMessageBus(mc)
+	mockSub := NewMockSubscription(mc)
+
+	mgr := NewPollingManager(mockBus)
+	mockBus.EXPECT().Subscribe(gomock.Any()).Return(mockSub, nil).Times(1)
+	mockSub.EXPECT().Receive().Return(ch).Times(2)
+	mockSub.EXPECT().Unsubscribe().Times(1)
+	mockBus.EXPECT().Enqueue(gomock.Any(), gomock.Any()).Do(func(roomID string, msg Event) {
+		ch <- Message{Data: data, Selector: S{idKey: msg.Selector[idKey]}}
+	})
+	ch <- Message{Data: "fake data", Selector: S{idKey: "fake id"}}
+
+	val, err := mgr.WaitForNotice(context.TODO(), "test", nil, S{})
 	if val != data || err != nil {
 		t.Errorf("should have received the message")
 	}

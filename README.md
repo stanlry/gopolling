@@ -108,7 +108,8 @@ mgr.Notify(roomID, gopolling.Message{
 })
 ```
 #### Event Listener
-Listen to event when request made and reply immediately if needed
+Listen to event when request was made and reply immediately. The reply message will only notify the client who
+make the request
 ```go
 // subscribe listener
 mgr.SubscribeListener(roomID, func(ev gopolling.Event, cb *gopolling.Callback){
@@ -116,9 +117,9 @@ mgr.SubscribeListener(roomID, func(ev gopolling.Event, cb *gopolling.Callback){
     xx := ev.Data.(your_struct)
     // logic here
 
-    // reply to client immediately if needed
-    // Only the matching client will be notified if selector is declared
+    // reply to client immediately
+    // you can skip this part if no reply is needed
     resp := []string{"test", "test"}
-    cb.Notify(resp, nil)
+    cb.Reply(resp, nil)
 }) 
 ```

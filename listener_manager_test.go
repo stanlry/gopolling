@@ -43,7 +43,7 @@ func TestListenerManager_Notify(t *testing.T) {
 	})).Times(1)
 
 	mgr.Subscribe(room, func(event Event, callback *Callback) {
-		callback.Notify(notifyData, nil)
+		callback.Reply(notifyData, nil)
 	})
 
 	ch <- Event{}
