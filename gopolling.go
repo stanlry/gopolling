@@ -19,7 +19,7 @@ type Option struct {
 	Logger Log
 }
 
-func NewGoPolling(option Option) GoPolling {
+func New(option Option) GoPolling {
 	var bus MessageBus
 
 	if option.Bus != nil {

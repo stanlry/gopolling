@@ -21,7 +21,7 @@ import (
 
 var room = "test"
 
-var mgr = gopolling.NewGoPolling(gopolling.Option{
+var mgr = gopolling.New(gopolling.Option{
     Bus: adapter.NewGoroutineAdapter(),
 })
 
@@ -60,7 +60,7 @@ var mgr = gopolling.NewGoPolling(gopolling.Option{
     Timeout: 1 * time.Minute,  
 
     // message bus
-    Bus: adapter.NewGoroutine(),
+    Bus: adapter.NewGoroutineAdapter(),
     // you can use redis as message bus
     // Bus: adapter.NewRedisAdapter(":6379", "password"), 
 
