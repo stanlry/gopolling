@@ -18,7 +18,7 @@ func setupManager(mc *gomock.Controller) (*PollingManager, *MockSubscription) {
 	return &mgr, mockSub
 }
 
-func TestPollingManagerTimeout(t *testing.T) {
+func TestPollingManager_Timeout(t *testing.T) {
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 
@@ -26,7 +26,7 @@ func TestPollingManagerTimeout(t *testing.T) {
 	mockSub.EXPECT().Receive().Return(make(chan Message))
 	mockSub.EXPECT().Unsubscribe().Times(1)
 
-	mgr.timeout = 1 * time.Second
+	mgr.timeout = 10 * time.Millisecond
 
 	val, err := mgr.WaitForNotice(context.TODO(), "test", nil, S{})
 	if val != nil || err != ErrTimeout {
@@ -34,7 +34,7 @@ func TestPollingManagerTimeout(t *testing.T) {
 	}
 }
 
-func TestPollingManagerCancelContext(t *testing.T) {
+func TestPollingManager_CancelContext(t *testing.T) {
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 
@@ -45,7 +45,7 @@ func TestPollingManagerCancelContext(t *testing.T) {
 	ctx, cf := context.WithCancel(context.Background())
 
 	go func() {
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(1 * time.Millisecond)
 		cf()
 	}()
 
@@ -55,7 +55,7 @@ func TestPollingManagerCancelContext(t *testing.T) {
 	}
 }
 
-func TestPollingManagerSelector(t *testing.T) {
+func TestPollingManager_Selector(t *testing.T) {
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 
