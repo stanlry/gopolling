@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	ErrTimeout     = errors.New("timeout")
-	ErrCancelled   = errors.New("cancelled")
+	ErrTimeout     = errors.New("request timeout")
+	ErrCancelled   = errors.New("request cancelled")
 	defaultTimeout = 120 * time.Second
 )
 

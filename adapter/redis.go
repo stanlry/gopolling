@@ -7,7 +7,17 @@ import (
 	"time"
 )
 
-func NewRedisAdapter(uri, password string) gopolling.MessageBus {
+func safePushToChannel(ch chan gopolling.Message, message gopolling.Message) (result bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			result = false
+		}
+	}()
+	ch <- message
+	return true
+}
+
+func NewRedisAdapter(uri, password string) *RedisAdapter {
 	p := RedisAdapter{
 		log: &gopolling.NoOpLog{},
 	}
@@ -97,6 +107,43 @@ func (r *RedisSubscription) Unsubscribe() error {
 type RedisAdapter struct {
 	pool redis.Pool
 	log  gopolling.Log
+}
+
+func (r *RedisAdapter) Find(key string) (gopolling.Message, bool) {
+	var msg gopolling.Message
+
+	con := r.pool.Get()
+	b, err := redis.Bytes(con.Do("GET", key))
+	if err != nil {
+		r.log.Errorf("redis fail to get key, error: %v", err)
+		return msg, false
+	}
+	if err := con.Close(); err != nil {
+		r.log.Errorf("fail to close redis connection, error: %v", err)
+	}
+
+	if err := json.Unmarshal(b, &msg); err != nil {
+		r.log.Errorf("fail to unmarshal, error: %v", err)
+		return msg, false
+	}
+
+	return msg, true
+}
+
+func (r *RedisAdapter) Save(key string, msg gopolling.Message, t int) {
+	con := r.pool.Get()
+	st, err := json.Marshal(msg)
+	if err != nil {
+		r.log.Errorf("fail to marshal message, error: %v", err)
+		return
+	}
+	if _, err := con.Do("SETEX", key, t, st); err != nil {
+		r.log.Errorf("redis fail to set, error: %v", err)
+		return
+	}
+	if err := con.Close(); err != nil {
+		r.log.Errorf("fail to close redis connection, error: %v", err)
+	}
 }
 
 func (r *RedisAdapter) SetLog(l gopolling.Log) {

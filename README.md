@@ -21,9 +21,7 @@ import (
 
 var room = "test"
 
-var mgr = gopolling.New(gopolling.Option{
-    Bus: adapter.NewGoroutineAdapter(),
-})
+var mgr = gopolling.New(gopolling.DefaultOption)
 
 func main() {
     http.HandleFunc("/message", func(w http.ResponseWriter, r *http.Request) {
@@ -56,13 +54,17 @@ curl -s localhost/notify?data=[your message here]
 #### Create Polling Manager
 ```go
 var mgr = gopolling.New(gopolling.Option{ 
+    // message retention time, default is 60s
+    Retention: 60,
+
     // set the timeout for each request, default 120s   
     Timeout: 1 * time.Minute,  
 
-    // message bus
-    Bus: adapter.NewGoroutineAdapter(),
-    // you can use redis as message bus
-    // Bus: adapter.NewRedisAdapter(":6379", "password"), 
+    // message bus, default use goroutine, you can choose redis as messaging bus
+    Bus: adapter.NewRedisAdapter(":6379", "password"), 
+
+    // message buffer, default use memory, you can choose redis as buffer
+    Buffer: adapter.NewRedisAdapter(":6379", "password"), 
 
     // logger interface, currently support zap and logrus, default will not log any error
     Logger: zap.New(), 
