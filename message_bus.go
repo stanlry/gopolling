@@ -57,50 +57,70 @@ func newGoroutineBus() MessageBus {
 	}
 }
 
-func newGoroutineSubscription(ch *chan Message) Subscription {
+func newGoroutineSubscription(ch chan Message) *goroutineSubscription {
 	return &goroutineSubscription{
 		ch: ch,
 	}
 }
 
 type goroutineSubscription struct {
-	ch *chan Message
+	ch chan Message
+	m  sync.RWMutex
+}
+
+func (g *goroutineSubscription) send(message Message) (result bool) {
+	g.m.RLock()
+	defer g.m.RUnlock()
+	defer func() {
+		if r := recover(); r != nil {
+			result = false
+		}
+	}()
+
+	g.ch <- message
+	return true
 }
 
 func (g *goroutineSubscription) Receive() <-chan Message {
-	return *g.ch
+	return g.ch
 }
 
 func (g *goroutineSubscription) Unsubscribe() error {
-	close(*g.ch)
+	g.m.Lock()
+	close(g.ch)
+	g.m.Unlock()
 	return nil
 }
 
 type subQueue struct {
-	channels []chan Message
-	m        sync.RWMutex
+	subs map[int]*goroutineSubscription
+	n    int
+	m    sync.RWMutex
 }
 
-func (q *subQueue) Get(i int) chan Message {
+func (q *subQueue) Add(sub *goroutineSubscription) {
+	q.m.Lock()
+	q.subs[q.n] = sub
+	q.n++
+	q.m.Unlock()
+}
+
+func (q *subQueue) Del(ids []int) {
+	q.m.Lock()
+	for _, id := range ids {
+		delete(q.subs, id)
+	}
+	q.m.Unlock()
+}
+
+type iterFunc func(int, *goroutineSubscription)
+
+func (q *subQueue) IterCb(fn iterFunc) {
 	q.m.RLock()
-	defer q.m.RUnlock()
-	return q.channels[i]
-}
-
-func (q *subQueue) Add(ch chan Message) {
-	q.m.Lock()
-	q.channels = append(q.channels, ch)
-	q.m.Unlock()
-}
-
-func (q *subQueue) Del(i int) {
-	q.m.Lock()
-	q.channels = append(q.channels[:i], q.channels[:i+1]...)
-	q.m.Unlock()
-}
-
-func (q *subQueue) Length() int {
-	return len(q.channels)
+	for i, v := range q.subs {
+		fn(i, v)
+	}
+	q.m.RUnlock()
 }
 
 type GoroutineBus struct {
@@ -127,12 +147,13 @@ func safePushToChannel(ch chan Message, message Message) (result bool) {
 func (g *GoroutineBus) Publish(roomID string, msg Message) error {
 	if val, ok := g.subscribers.Get(roomID); ok {
 		subq := val.(*subQueue)
-		for i := 0; i < subq.Length(); i++ {
-			ch := subq.Get(i)
-			if !safePushToChannel(ch, msg) {
-				subq.Del(i)
+		var rmi []int
+		subq.IterCb(func(i int, sub *goroutineSubscription) {
+			if !sub.send(msg) {
+				rmi = append(rmi, i)
 			}
-		}
+		})
+		subq.Del(rmi)
 	} else {
 		return ErrNotSubscriber
 	}
@@ -142,16 +163,19 @@ func (g *GoroutineBus) Publish(roomID string, msg Message) error {
 
 func (g *GoroutineBus) Subscribe(roomID string) (Subscription, error) {
 	ch := make(chan Message)
+	sub := newGoroutineSubscription(ch)
 	if val, ok := g.subscribers.Get(roomID); ok {
 		subq := val.(*subQueue)
-		subq.Add(ch)
+		subq.Add(sub)
 	} else {
-		subq := subQueue{}
-		subq.Add(ch)
+		subq := subQueue{
+			subs: make(map[int]*goroutineSubscription),
+		}
+		subq.Add(sub)
 		g.subscribers.Set(roomID, &subq)
 	}
 
-	return newGoroutineSubscription(&ch), nil
+	return sub, nil
 }
 
 func (g *GoroutineBus) Enqueue(roomID string, t Event) {

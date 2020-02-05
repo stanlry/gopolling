@@ -40,10 +40,16 @@ func TestGoroutineBus_PublishSubscribe(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
-		go func() {
+		go func(index int) {
 			sub, err := bus.Subscribe(room)
 			if err != nil {
 				t.Error(err)
+			}
+
+			if index == 4 {
+				sub.Unsubscribe()
+				wg.Done()
+				return
 			}
 
 			tick := time.Tick(1 * time.Second)
@@ -56,7 +62,7 @@ func TestGoroutineBus_PublishSubscribe(t *testing.T) {
 				}
 				wg.Done()
 			}
-		}()
+		}(i)
 	}
 
 	time.Sleep(1 * time.Millisecond)

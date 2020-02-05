@@ -25,7 +25,7 @@ func TestListenerManager_Subscribe(t *testing.T) {
 	bus.EXPECT().Dequeue(room).Times(1)
 	mgr.Subscribe(room, noOpFunc)
 
-	time.Sleep(1 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 }
 
 func TestListenerManager_Notify(t *testing.T) {
@@ -48,5 +48,5 @@ func TestListenerManager_Notify(t *testing.T) {
 
 	ch <- Event{}
 
-	time.Sleep(1 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 }
