@@ -1,5 +1,7 @@
 GoPolling
 ==================
+[![Go Report Card](https://goreportcard.com/badge/github.com/stanlry/gopolling)](https://goreportcard.com/report/github.com/stanlry/gopolling)
+
 Simple tool for handling long polling request on server side.
 
 ### Install
