@@ -134,16 +134,6 @@ func (g *GoroutineBus) SetLog(l Log) {
 	g.log = l
 }
 
-func safePushToChannel(ch chan Message, message Message) (result bool) {
-	defer func() {
-		if r := recover(); r != nil {
-			result = false
-		}
-	}()
-	ch <- message
-	return true
-}
-
 func (g *GoroutineBus) Publish(roomID string, msg Message) error {
 	if val, ok := g.subscribers.Get(roomID); ok {
 		subq := val.(*subQueue)
