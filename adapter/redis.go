@@ -124,6 +124,9 @@ func (r *RedisAdapter) Find(key string) (gopolling.Message, bool) {
 	con := r.pool.Get()
 	b, err := redis.Bytes(con.Do("GET", key))
 	if err != nil {
+		if err == redis.ErrNil {
+			return msg, false
+		}
 		r.log.Errorf("redis fail to get key, error: %v", err)
 		return msg, false
 	}
