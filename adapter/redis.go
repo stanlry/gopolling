@@ -4,18 +4,9 @@ import (
 	"encoding/json"
 	"github.com/gomodule/redigo/redis"
 	"github.com/stanlry/gopolling"
+	"sync"
 	"time"
 )
-
-func safePushToChannel(ch chan gopolling.Message, message gopolling.Message) (result bool) {
-	defer func() {
-		if r := recover(); r != nil {
-			result = false
-		}
-	}()
-	ch <- message
-	return true
-}
 
 func NewRedisAdapter(uri, password string) *RedisAdapter {
 	p := RedisAdapter{
@@ -61,6 +52,22 @@ type RedisSubscription struct {
 	con redis.PubSubConn
 	log gopolling.Log
 	ch  chan gopolling.Message
+
+	m sync.RWMutex
+}
+
+func (r *RedisSubscription) tryPushToChannel(message gopolling.Message) (result bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			result = false
+		}
+	}()
+
+	r.m.RLock()
+	defer r.m.RUnlock()
+
+	r.ch <- message
+	return true
 }
 
 func (r *RedisSubscription) startListen() {
@@ -73,14 +80,14 @@ loop:
 				msg.Error = err
 			}
 
-			if !safePushToChannel(r.ch, msg) {
+			if !r.tryPushToChannel(msg) {
 				break loop
 			}
 		case error:
 			var msg gopolling.Message
 			msg.Error = v
 
-			if !safePushToChannel(r.ch, msg) {
+			if !r.tryPushToChannel(msg) {
 				break loop
 			}
 		case redis.Subscription:
@@ -100,7 +107,9 @@ func (r *RedisSubscription) Receive() <-chan gopolling.Message {
 }
 
 func (r *RedisSubscription) Unsubscribe() error {
+	r.m.Lock()
 	close(r.ch)
+	r.m.Unlock()
 	return r.con.Unsubscribe()
 }
 
