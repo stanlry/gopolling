@@ -17,7 +17,6 @@ package main
 import (
     "encoding/json"
     "github.com/stanlry/gopolling"
-    "github.com/stanlry/gopolling/adapter"
     "log"
     "net/http"
 )
@@ -74,26 +73,26 @@ var mgr = gopolling.New(gopolling.Option{
 })
 ```
 
-#### Polling Client
-client that wait for notice from listener or notifier
+#### Wait For Notice
+wait for notice from listener or notifier
 ```go
 // this function will block until receive a notice or timeout
 val, err := mgr.WaitForNotice(
     // request context
     r.Context(), 
-    // room is the classification, clients in the same room will all be notified if no selector is specified
+    // room is the classification, everyone in the same room will be notified if no selector is specified
     room, 
     // send the data to listener, it will be discarded if no listener exist
     "data",
 })
 ```
-client that only wait for notice with matched selector
+only wait for notice with matched selector
 ```go
 val err := mgr.WaitForSelectedNotice(
     r.Context(),
     room,
     "data",
-    // specify client identity in the room, this selector is essential a string map
+    // specify identity in the room, this selector is essential a string map
     gopolling.S{
         "id": "xxx",
         "name": "xxx",
@@ -102,21 +101,21 @@ val err := mgr.WaitForSelectedNotice(
 ```
 
 #### Direct Notify
-Notify all the client that have been waiting in the room
+Notify everyone that have been waiting in the room
 ```go
 mgr.Notify(roomID, gopolling.Message{
-    // data being sent to client
+    // data being sent
     Data: "data to notify client",
     // error
     Error: nil,
-    // selector that specify the receiving client, if no client match the selector, message will be discarded
+    // selector that specify the receiving side, if no one match the selector, message will be discarded
     Selector: gopolling.S{
         "id": "xxx",
     }
 })
 ```
 #### Event Listener
-Listen to event when request was made and reply immediately. The reply message will only notify the client who
+Listen to event when request was made and reply immediately. The reply message will only notify the one who
 make the request
 ```go
 // subscribe listener
@@ -124,7 +123,7 @@ mgr.SubscribeListener(roomID, func(ev gopolling.Event, cb *gopolling.Callback){
     // event data
     xx := ev.Data.(your_struct)
 
-    // reply to client immediately, you can skip this part if no reply is needed
+    // reply to immediately, you can skip this part if no reply is needed
     resp := []string{"I'm", "data"}
     cb.Reply(resp, nil)
 }) 
