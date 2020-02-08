@@ -2,7 +2,13 @@ package gopolling
 
 import (
 	"context"
+	"strings"
 	"time"
+)
+
+const (
+	queuePrefix  = "gpqueue:"
+	pubsubPrefix = "gppubsub:"
 )
 
 type Option struct {
@@ -20,54 +26,75 @@ type Option struct {
 
 	// Logging implementation
 	Logger Log
+
+	PubSubPrefix string
+
+	QueuePrefix string
 }
 
 var DefaultOption = Option{
-	Retention: 120,
-	Timeout:   120 * time.Second,
-	Bus:       newGoroutineBus(),
-	Buffer:    newMemoryBuffer(),
+	Retention:    600,
+	Timeout:      120 * time.Second,
+	Bus:          newGoroutineBus(),
+	Buffer:       newMemoryBuffer(),
+	PubSubPrefix: pubsubPrefix,
+	QueuePrefix:  queuePrefix,
+	Logger:       &NoOpLog{},
 }
 
-func New(option Option) GoPolling {
+func buildOption(option Option) Option {
+	op := DefaultOption
+	if option.Timeout > 0 {
+		op.Timeout = option.Timeout
+	}
+	if option.Logger != nil {
+		op.Logger = option.Logger
+	}
+	if option.Bus != nil {
+		op.Bus = option.Bus
+	}
+	if option.Buffer != nil {
+		op.Buffer = option.Buffer
+	}
+	if option.Retention != 0 {
+		op.Retention = option.Retention
+	}
+	if len(strings.TrimSpace(option.QueuePrefix)) != 0 {
+		op.QueuePrefix = option.QueuePrefix
+	}
+	if len(strings.TrimSpace(option.PubSubPrefix)) != 0 {
+		op.PubSubPrefix = option.PubSubPrefix
+	}
+	return op
+}
+
+func New(opt Option) GoPolling {
 	var gp GoPolling
 
-	if option.Bus != nil {
-		gp.bus = option.Bus
-	} else {
-		panic("no message bus")
-	}
+	option := buildOption(opt)
 
-	gp.pollingMgr = NewPollingManager(option.Bus)
-	if option.Timeout != 0 {
-		gp.pollingMgr.timeout = option.Timeout
-	}
+	gp.pollingMgr = NewPollingManager(option.Bus, option.Timeout, option.QueuePrefix, option.PubSubPrefix)
+	gp.listenerMgr = NewListenerManager(option.Bus, option.QueuePrefix, option.PubSubPrefix)
 
-	gp.listenerMgr = NewListenerManager(option.Bus)
+	gp.pollingMgr.log = option.Logger
+	gp.listenerMgr.log = option.Logger
 
-	if option.Logger != nil {
-		gp.pollingMgr.log = option.Logger
-		gp.listenerMgr.log = option.Logger
-		gp.bus.SetLog(option.Logger)
-	}
-
-	if option.Buffer != nil {
-		gp.buffer = option.Buffer
-	}
-
-	if option.Retention != 0 {
-		gp.retention = option.Retention
-	}
+	gp.bus = option.Bus
+	gp.bus.SetLog(option.Logger)
+	gp.buffer = option.Buffer
+	gp.retention = option.Retention
+	gp.pubsubPrefix = option.PubSubPrefix
 
 	return gp
 }
 
 type GoPolling struct {
-	bus         MessageBus
-	pollingMgr  PollingManager
-	listenerMgr ListenerManager
-	buffer      MessageBuffer
-	retention   int
+	bus          MessageBus
+	pollingMgr   PollingManager
+	listenerMgr  ListenerManager
+	buffer       MessageBuffer
+	retention    int
+	pubsubPrefix string
 }
 
 func (g *GoPolling) WaitForNotice(ctx context.Context, roomID string, data interface{}) (interface{}, error) {
@@ -105,5 +132,5 @@ func (g *GoPolling) Notify(roomID string, message Message) error {
 		g.buffer.Save(hashedKey, message, g.retention)
 	}
 
-	return g.bus.Publish(roomID, message)
+	return g.bus.Publish(g.pubsubPrefix+roomID, message)
 }

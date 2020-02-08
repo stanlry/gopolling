@@ -34,11 +34,13 @@ func (r *Callback) getReplyMsg() *Message {
 
 type ListenerFunc func(Event, *Callback)
 
-func NewListenerManager(adapter MessageBus) ListenerManager {
+func NewListenerManager(adapter MessageBus, queuePrefix, pubsubPrefix string) ListenerManager {
 	return ListenerManager{
-		listeners: make(map[string]elm),
-		bus:       adapter,
-		log:       &NoOpLog{},
+		listeners:    make(map[string]elm),
+		bus:          adapter,
+		log:          &NoOpLog{},
+		queuePrefix:  queuePrefix,
+		pubsubPrefix: pubsubPrefix,
 	}
 }
 
@@ -48,8 +50,10 @@ type ListenerManager struct {
 	listeners map[string]elm
 	m         sync.Mutex
 
-	log Log
-	bus MessageBus
+	log          Log
+	bus          MessageBus
+	pubsubPrefix string
+	queuePrefix  string
 }
 
 func (m *ListenerManager) execListener(roomID string, lf ListenerFunc, ev Event) {
@@ -58,7 +62,7 @@ func (m *ListenerManager) execListener(roomID string, lf ListenerFunc, ev Event)
 	if r.notified {
 		msg := r.getReplyMsg()
 		msg.Selector = ev.Selector
-		if err := m.bus.Publish(roomID, *msg); err != nil {
+		if err := m.bus.Publish(m.pubsubPrefix+roomID, *msg); err != nil {
 			m.log.Errorf("fail to publish message, roomID: %v", roomID)
 		}
 	}
@@ -67,7 +71,7 @@ func (m *ListenerManager) execListener(roomID string, lf ListenerFunc, ev Event)
 func (m *ListenerManager) listen(roomID string, lf ListenerFunc) {
 	for {
 		select {
-		case event := <-m.bus.Dequeue(roomID):
+		case event := <-m.bus.Dequeue(m.queuePrefix + roomID):
 			go m.execListener(roomID, lf, event)
 		}
 	}

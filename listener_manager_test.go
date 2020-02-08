@@ -8,7 +8,7 @@ import (
 
 func setupListener(mc *gomock.Controller) (*ListenerManager, *MockMessageBus) {
 	bus := NewMockMessageBus(mc)
-	mgr := NewListenerManager(bus)
+	mgr := NewListenerManager(bus, queuePrefix, pubsubPrefix)
 
 	return &mgr, bus
 }
@@ -22,7 +22,7 @@ func TestListenerManager_Subscribe(t *testing.T) {
 	mgr, bus := setupListener(mc)
 
 	room := "room1"
-	bus.EXPECT().Dequeue(room).Times(1)
+	bus.EXPECT().Dequeue(queuePrefix + room).Times(1)
 	mgr.Subscribe(room, noOpFunc)
 
 	time.Sleep(10 * time.Millisecond)
@@ -37,8 +37,8 @@ func TestListenerManager_Notify(t *testing.T) {
 	room := "room1"
 	notifyData := "testNotify"
 	ch := make(chan Event)
-	bus.EXPECT().Dequeue(room).Return(ch).Times(2)
-	bus.EXPECT().Publish(room, gomock.Eq(Message{
+	bus.EXPECT().Dequeue(queuePrefix + room).Return(ch).Times(2)
+	bus.EXPECT().Publish(pubsubPrefix+room, gomock.Eq(Message{
 		Data: notifyData,
 	})).Times(1)
 

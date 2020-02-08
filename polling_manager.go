@@ -13,11 +13,17 @@ var (
 	defaultTimeout = 120 * time.Second
 )
 
-func NewPollingManager(adapter MessageBus) PollingManager {
+func NewPollingManager(adapter MessageBus, t time.Duration, queuePrefix, pubsubPrefix string) PollingManager {
+	timeout := defaultTimeout
+	if t != 0 {
+		timeout = t
+	}
 	return PollingManager{
-		bus:     adapter,
-		timeout: defaultTimeout,
-		log:     &NoOpLog{},
+		bus:          adapter,
+		timeout:      timeout,
+		log:          &NoOpLog{},
+		queuePrefix:  queuePrefix,
+		pubsubPrefix: pubsubPrefix,
 	}
 }
 
@@ -25,13 +31,15 @@ type PollingManager struct {
 	bus     MessageBus
 	timeout time.Duration
 
-	log Log
+	log          Log
+	queuePrefix  string
+	pubsubPrefix string
 }
 
 const idKey = "_gopolling_id"
 
 func (m *PollingManager) WaitForNotice(ctx context.Context, roomID string, data interface{}, sel S) (interface{}, error) {
-	sub, err := m.bus.Subscribe(roomID)
+	sub, err := m.bus.Subscribe(m.pubsubPrefix + roomID)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +55,7 @@ func (m *PollingManager) WaitForNotice(ctx context.Context, roomID string, data 
 		Data:     data,
 		Selector: sel,
 	}
-	m.bus.Enqueue(roomID, tk)
+	m.bus.Enqueue(m.queuePrefix+roomID, tk)
 	delete(sel, idKey)
 
 wait:

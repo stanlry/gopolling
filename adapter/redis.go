@@ -110,7 +110,11 @@ func (r *RedisSubscription) Unsubscribe() error {
 	r.m.Lock()
 	close(r.ch)
 	r.m.Unlock()
-	return r.con.Unsubscribe()
+	if err := r.con.Unsubscribe(); err != nil {
+		r.log.Errorf("fail to unsubscribe from redis, error: ", err)
+		return err
+	}
+	return nil
 }
 
 type RedisAdapter struct {
