@@ -25,13 +25,6 @@ func (r *Callback) Reply(data interface{}, err error) {
 	r.err = err
 }
 
-func (r *Callback) getReplyMsg() *Message {
-	return &Message{
-		Data:  r.data,
-		Error: r.err,
-	}
-}
-
 type ListenerFunc func(Event, *Callback)
 
 func NewListenerManager(adapter MessageBus, queuePrefix, pubsubPrefix string) ListenerManager {
@@ -60,9 +53,7 @@ func (m *ListenerManager) execListener(roomID string, lf ListenerFunc, ev Event)
 	r := NewCallback(roomID)
 	lf(ev, &r)
 	if r.notified {
-		msg := r.getReplyMsg()
-		msg.Selector = ev.Selector
-		if err := m.bus.Publish(m.pubsubPrefix+roomID, *msg); err != nil {
+		if err := m.bus.Publish(m.pubsubPrefix+roomID, r.data, r.err, ev.Selector); err != nil {
 			m.log.Errorf("fail to publish message, roomID: %v", roomID)
 		}
 	}

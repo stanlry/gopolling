@@ -13,6 +13,7 @@ func setupManager(mc *gomock.Controller) (*PollingManager, *MockSubscription) {
 
 	mockBus.EXPECT().Subscribe(gomock.Any()).Return(mockSub, nil).Times(1)
 	mockBus.EXPECT().Enqueue(gomock.Any(), gomock.Any()).Times(1)
+	mockBus.EXPECT().Unsubscribe(mockSub).Times(1)
 	mgr := NewPollingManager(mockBus, 10*time.Millisecond, queuePrefix, pubsubPrefix)
 
 	return &mgr, mockSub
@@ -23,8 +24,7 @@ func TestPollingManager_Timeout(t *testing.T) {
 	defer mc.Finish()
 
 	mgr, mockSub := setupManager(mc)
-	mockSub.EXPECT().Receive().Return(make(chan Message))
-	mockSub.EXPECT().Unsubscribe().Times(1)
+	mockSub.EXPECT().Receive().Return(make(chan Msg))
 
 	mgr.timeout = 10 * time.Millisecond
 
@@ -39,8 +39,7 @@ func TestPollingManager_CancelContext(t *testing.T) {
 	defer mc.Finish()
 
 	mgr, mockSub := setupManager(mc)
-	mockSub.EXPECT().Receive().Return(make(chan Message))
-	mockSub.EXPECT().Unsubscribe().Times(1)
+	mockSub.EXPECT().Receive().Return(make(chan Msg))
 
 	ctx, cf := context.WithCancel(context.Background())
 
@@ -59,18 +58,19 @@ func TestPollingManager_Selector(t *testing.T) {
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 
-	sel := S{"name": "s1"}
 	data := "test data"
+	sel := S{"name": "s1"}
+	mockPayload := NewMockPayload(mc)
+	mockPayload.EXPECT().Data().Return(data)
 
 	mgr, mockSub := setupManager(mc)
-	ch := make(chan Message, 2)
-	ch <- Message{Data: data}
-	ch <- Message{Data: data, Selector: sel}
+	ch := make(chan Msg, 2)
+	ch <- Msg{Payload: mockPayload}
+	ch <- Msg{Payload: mockPayload, Selector: sel}
 	mockSub.EXPECT().Receive().Return(ch).Times(2)
-	mockSub.EXPECT().Unsubscribe().Times(1)
 
 	val, err := mgr.WaitForNotice(context.TODO(), "test", nil, sel)
-	if val != data || err != nil {
+	if val.Data() != data || err != nil {
 		t.Errorf("should have received the message")
 	}
 }
@@ -80,23 +80,25 @@ func TestPollingManager_ReplyID(t *testing.T) {
 	defer mc.Finish()
 
 	data := "test data"
-	ch := make(chan Message, 2)
+	ch := make(chan Msg, 2)
 	room := "test"
 
 	mockBus := NewMockMessageBus(mc)
 	mockSub := NewMockSubscription(mc)
+	mockPayload := NewMockPayload(mc)
 
 	mgr := NewPollingManager(mockBus, 10*time.Millisecond, queuePrefix, pubsubPrefix)
 	mockBus.EXPECT().Subscribe(pubsubPrefix+room).Return(mockSub, nil).Times(1)
 	mockSub.EXPECT().Receive().Return(ch).Times(2)
-	mockSub.EXPECT().Unsubscribe().Times(1)
+	mockBus.EXPECT().Unsubscribe(mockSub).Times(1)
+	mockPayload.EXPECT().Data().Return(data)
 	mockBus.EXPECT().Enqueue(queuePrefix+room, gomock.Any()).Do(func(roomID string, msg Event) {
-		ch <- Message{Data: data, Selector: S{idKey: msg.Selector[idKey]}}
+		ch <- Msg{Payload: mockPayload, Selector: S{idKey: msg.Selector[idKey]}}
 	})
-	ch <- Message{Data: "fake data", Selector: S{idKey: "fake id"}}
+	ch <- Msg{Payload: mockPayload, Selector: S{idKey: "fake id"}}
 
 	val, err := mgr.WaitForNotice(context.TODO(), room, nil, S{})
-	if val != data || err != nil {
+	if val.Data() != data || err != nil {
 		t.Errorf("should have received the message")
 	}
 }

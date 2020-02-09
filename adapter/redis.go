@@ -40,7 +40,7 @@ func newRedisSubscription(con redis.Conn, log gopolling.Log, roomID string) (gop
 	s := RedisSubscription{
 		con: subcon,
 		log: log,
-		ch:  make(chan gopolling.Message),
+		ch:  make(chan gopolling.Msg),
 	}
 
 	go s.startListen()
@@ -51,12 +51,12 @@ func newRedisSubscription(con redis.Conn, log gopolling.Log, roomID string) (gop
 type RedisSubscription struct {
 	con redis.PubSubConn
 	log gopolling.Log
-	ch  chan gopolling.Message
+	ch  chan gopolling.Msg
 
 	m sync.RWMutex
 }
 
-func (r *RedisSubscription) tryPushToChannel(message gopolling.Message) (result bool) {
+func (r *RedisSubscription) tryPushToChannel(message gopolling.Msg) (result bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			result = false
@@ -75,7 +75,8 @@ loop:
 	for {
 		switch v := r.con.Receive().(type) {
 		case redis.Message:
-			var msg gopolling.Message
+			var msg gopolling.Msg
+			msg.Payload = &redisPayload{}
 			if err := json.Unmarshal(v.Data, &msg); err != nil {
 				msg.Error = err
 			}
@@ -84,7 +85,7 @@ loop:
 				break loop
 			}
 		case error:
-			var msg gopolling.Message
+			var msg gopolling.Msg
 			msg.Error = v
 
 			if !r.tryPushToChannel(msg) {
@@ -96,13 +97,9 @@ loop:
 			}
 		}
 	}
-
-	if err := r.con.Close(); err != nil {
-		r.log.Errorf("fail to close redis connection, error: %v", err)
-	}
 }
 
-func (r *RedisSubscription) Receive() <-chan gopolling.Message {
+func (r *RedisSubscription) Receive() <-chan gopolling.Msg {
 	return r.ch
 }
 
@@ -114,7 +111,27 @@ func (r *RedisSubscription) Unsubscribe() error {
 		r.log.Errorf("fail to unsubscribe from redis, error: ", err)
 		return err
 	}
+	if err := r.con.Close(); err != nil {
+		r.log.Errorf("fail to close redis connection, error: %v", err)
+		return err
+	}
 	return nil
+}
+
+func newRedisPayload(data []byte) *redisPayload {
+	return &redisPayload{ByteData: data}
+}
+
+type redisPayload struct {
+	ByteData []byte
+}
+
+func (r *redisPayload) Data() (out interface{}) {
+	return r.ByteData
+}
+
+func (r *redisPayload) Decode(t interface{}) error {
+	return json.Unmarshal(r.ByteData, t)
 }
 
 type RedisAdapter struct {
@@ -122,8 +139,9 @@ type RedisAdapter struct {
 	log  gopolling.Log
 }
 
-func (r *RedisAdapter) Find(key string) (gopolling.Message, bool) {
-	var msg gopolling.Message
+func (r *RedisAdapter) Find(key string) (gopolling.Msg, bool) {
+	var msg gopolling.Msg
+	msg.Payload = &redisPayload{}
 
 	con := r.pool.Get()
 	b, err := redis.Bytes(con.Do("GET", key))
@@ -136,6 +154,7 @@ func (r *RedisAdapter) Find(key string) (gopolling.Message, bool) {
 	}
 	if err := con.Close(); err != nil {
 		r.log.Errorf("fail to close redis connection, error: %v", err)
+		return msg, false
 	}
 
 	if err := json.Unmarshal(b, &msg); err != nil {
@@ -146,15 +165,26 @@ func (r *RedisAdapter) Find(key string) (gopolling.Message, bool) {
 	return msg, true
 }
 
-func (r *RedisAdapter) Save(key string, msg gopolling.Message, t int) {
+func (r *RedisAdapter) Save(key string, val interface{}, err error, t int) {
 	con := r.pool.Get()
+
+	valbyte, err := json.Marshal(val)
+	if err != nil {
+		r.log.Errorf("fail to marshal value, error: %v", err)
+		return
+	}
+	msg := gopolling.Msg{
+		Payload: newRedisPayload(valbyte),
+		Error:   err,
+	}
+
 	st, err := json.Marshal(msg)
 	if err != nil {
-		r.log.Errorf("fail to marshal message, error: %v", err)
+		r.log.Errorf("fail to marshal, error: %v", err)
 		return
 	}
 	if _, err := con.Do("SETEX", key, t, st); err != nil {
-		r.log.Errorf("redis fail to set, error: %v", err)
+		r.log.Errorf("redis fail to setex, error: %v", err)
 		return
 	}
 	if err := con.Close(); err != nil {
@@ -166,10 +196,20 @@ func (r *RedisAdapter) SetLog(l gopolling.Log) {
 	r.log = l
 }
 
-func (r *RedisAdapter) Publish(roomID string, msg gopolling.Message) error {
-	data, _ := json.Marshal(msg)
+func (r *RedisAdapter) Publish(channel string, val interface{}, err error, selector gopolling.S) error {
+	st, err := json.Marshal(val)
+	if err != nil {
+		return err
+	}
+
+	data, _ := json.Marshal(gopolling.Msg{
+		Payload:  newRedisPayload(st),
+		Error:    err,
+		Selector: selector,
+	})
+
 	con := r.pool.Get()
-	if _, err := con.Do("PUBLISH", roomID, data); err != nil {
+	if _, err := con.Do("PUBLISH", channel, data); err != nil {
 		return err
 	}
 	return con.Close()
@@ -177,6 +217,11 @@ func (r *RedisAdapter) Publish(roomID string, msg gopolling.Message) error {
 
 func (r *RedisAdapter) Subscribe(roomID string) (gopolling.Subscription, error) {
 	return newRedisSubscription(r.pool.Get(), r.log, roomID)
+}
+
+func (r *RedisAdapter) Unsubscribe(sub gopolling.Subscription) error {
+	rsub := sub.(*RedisSubscription)
+	return rsub.con.Unsubscribe()
 }
 
 func (r *RedisAdapter) Enqueue(roomID string, task gopolling.Event) {

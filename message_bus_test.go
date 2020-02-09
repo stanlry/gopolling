@@ -34,20 +34,22 @@ func TestGoroutineBus_EnqueueDequeue(t *testing.T) {
 func TestGoroutineBus_PublishSubscribe(t *testing.T) {
 	bus := newGoroutineBus()
 
-	room := "testroom"
+	room := "test-room"
 	data := "test data"
 
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		go func(index int) {
 			sub, err := bus.Subscribe(room)
 			if err != nil {
 				t.Error(err)
+				wg.Done()
+				return
 			}
 
-			if index == 4 {
-				sub.Unsubscribe()
+			if index%11 == 0 {
+				bus.Unsubscribe(sub)
 				wg.Done()
 				return
 			}
@@ -56,8 +58,9 @@ func TestGoroutineBus_PublishSubscribe(t *testing.T) {
 			select {
 			case <-tick:
 				t.Error("cannot receive message")
+				wg.Done()
 			case msg := <-sub.Receive():
-				if msg.Data != data {
+				if msg.Payload.Data() != data {
 					t.Error("invalid data")
 				}
 				wg.Done()
@@ -65,9 +68,9 @@ func TestGoroutineBus_PublishSubscribe(t *testing.T) {
 		}(i)
 	}
 
-	time.Sleep(1 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
-	if err := bus.Publish(room, Message{Data: data}); err != nil {
+	if err := bus.Publish(room, data, nil, S{}); err != nil {
 		t.Error(err)
 	}
 

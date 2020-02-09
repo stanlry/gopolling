@@ -4,6 +4,7 @@ package gopolling
 import (
 	"errors"
 	"github.com/orcaman/concurrent-map"
+	"github.com/rs/xid"
 	"sync"
 )
 
@@ -24,14 +25,25 @@ type Event struct {
 	Selector S
 }
 
+type Payload interface {
+	Data() interface{}
+	Decode(interface{}) error
+}
+
+type Msg struct {
+	Payload  Payload
+	Error    error
+	Selector S
+}
+
 type Subscription interface {
-	Receive() <-chan Message
-	Unsubscribe() error
+	Receive() <-chan Msg
 }
 
 type PubSub interface {
-	Publish(string, Message) error
+	Publish(string, interface{}, error, S) error
 	Subscribe(string) (Subscription, error)
+	Unsubscribe(Subscription) error
 }
 
 type EventQueue interface {
@@ -50,6 +62,23 @@ type MessageBus interface {
 	Loggable
 }
 
+func newGoroutinePayload(data interface{}) Payload {
+	return &goroutinePayload{data: data}
+}
+
+type goroutinePayload struct {
+	data interface{}
+}
+
+func (g *goroutinePayload) Data() interface{} {
+	return g.data
+}
+
+func (g *goroutinePayload) Decode(val interface{}) error {
+	val = g.data
+	return nil
+}
+
 func newGoroutineBus() MessageBus {
 	return &GoroutineBus{
 		subscribers: cmap.New(),
@@ -57,63 +86,42 @@ func newGoroutineBus() MessageBus {
 	}
 }
 
-func newGoroutineSubscription(ch chan Message) *goroutineSubscription {
+func newGoroutineSubscription(room, id string, ch chan Msg) *goroutineSubscription {
 	return &goroutineSubscription{
-		ch: ch,
+		room: room,
+		id:   id,
+		ch:   ch,
 	}
 }
 
 type goroutineSubscription struct {
-	ch chan Message
-	m  sync.RWMutex
+	ch   chan Msg
+	room string
+	id   string
 }
 
-func (g *goroutineSubscription) send(message Message) (result bool) {
-	g.m.RLock()
-	defer g.m.RUnlock()
-	defer func() {
-		if r := recover(); r != nil {
-			result = false
-		}
-	}()
-
-	g.ch <- message
-	return true
-}
-
-func (g *goroutineSubscription) Receive() <-chan Message {
+func (g *goroutineSubscription) Receive() <-chan Msg {
 	return g.ch
 }
 
-func (g *goroutineSubscription) Unsubscribe() error {
-	g.m.Lock()
-	close(g.ch)
-	g.m.Unlock()
-	return nil
-}
-
 type subQueue struct {
-	subs map[int]*goroutineSubscription
-	n    int
+	subs map[string]chan Msg
 	m    sync.RWMutex
 }
 
 func (q *subQueue) Add(sub *goroutineSubscription) {
 	q.m.Lock()
-	q.subs[q.n] = sub
-	q.n++
+	q.subs[sub.id] = sub.ch
 	q.m.Unlock()
 }
 
-func (q *subQueue) Del(ids []int) {
+func (q *subQueue) Del(id string) {
 	q.m.Lock()
-	for _, id := range ids {
-		delete(q.subs, id)
-	}
+	delete(q.subs, id)
 	q.m.Unlock()
 }
 
-type iterFunc func(int, *goroutineSubscription)
+type iterFunc func(string, chan Msg)
 
 func (q *subQueue) IterCb(fn iterFunc) {
 	q.m.RLock()
@@ -130,20 +138,30 @@ type GoroutineBus struct {
 	log Log
 }
 
+func (g *GoroutineBus) Unsubscribe(sub Subscription) error {
+	gsub := sub.(*goroutineSubscription)
+	if val, ok := g.subscribers.Get(gsub.room); ok {
+		subq := val.(*subQueue)
+		subq.Del(gsub.id)
+	}
+	return nil
+}
+
 func (g *GoroutineBus) SetLog(l Log) {
 	g.log = l
 }
 
-func (g *GoroutineBus) Publish(roomID string, msg Message) error {
+func (g *GoroutineBus) Publish(roomID string, data interface{}, err error, selector S) error {
 	if val, ok := g.subscribers.Get(roomID); ok {
 		subq := val.(*subQueue)
-		var rmi []int
-		subq.IterCb(func(i int, sub *goroutineSubscription) {
-			if !sub.send(msg) {
-				rmi = append(rmi, i)
-			}
+		msg := Msg{
+			Payload:  newGoroutinePayload(data),
+			Error:    err,
+			Selector: selector,
+		}
+		subq.IterCb(func(id string, ch chan Msg) {
+			ch <- msg
 		})
-		subq.Del(rmi)
 	} else {
 		return ErrNotSubscriber
 	}
@@ -152,14 +170,15 @@ func (g *GoroutineBus) Publish(roomID string, msg Message) error {
 }
 
 func (g *GoroutineBus) Subscribe(roomID string) (Subscription, error) {
-	ch := make(chan Message)
-	sub := newGoroutineSubscription(ch)
+	ch := make(chan Msg)
+	id := xid.New()
+	sub := newGoroutineSubscription(roomID, id.String(), ch)
 	if val, ok := g.subscribers.Get(roomID); ok {
 		subq := val.(*subQueue)
 		subq.Add(sub)
 	} else {
 		subq := subQueue{
-			subs: make(map[int]*goroutineSubscription),
+			subs: make(map[string]chan Msg),
 		}
 		subq.Add(sub)
 		g.subscribers.Set(roomID, &subq)

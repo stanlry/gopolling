@@ -27,16 +27,14 @@ var mgr = gopolling.New(gopolling.DefaultOption)
 
 func main() {
     http.HandleFunc("/message", func(w http.ResponseWriter, r *http.Request) {
-        data, _ := mgr.WaitForNotice(r.Context(), room, nil)
-        st, _ := json.Marshal(data)
+        resp, _ := mgr.WaitForNotice(r.Context(), room, nil)
+        st, _ := json.Marshal(resp.Data())
         w.Write(st)
     })
     
     http.HandleFunc("/notify", func(w http.ResponseWriter, r *http.Request) {
-        mgr.Notify(room, gopolling.Message{
-            Data:  r.URL.Query().Get("data"), 
-            Error: nil,
-        })
+        data := r.URL.Query().Get("data")
+        mgr.Notify(room, data, nil, nil)
     })
         
     log.Println("start serve on :80")
@@ -77,7 +75,7 @@ var mgr = gopolling.New(gopolling.Option{
 wait for notice from listener or notifier
 ```go
 // this function will block until receive a notice or timeout
-val, err := mgr.WaitForNotice(
+resp, err := mgr.WaitForNotice(
     // request context
     r.Context(), 
     // room is the classification, everyone in the same room will be notified if no selector is specified
@@ -88,7 +86,7 @@ val, err := mgr.WaitForNotice(
 ```
 only wait for notice with matched selector
 ```go
-val err := mgr.WaitForSelectedNotice(
+resp, err := mgr.WaitForSelectedNotice(
     r.Context(),
     room,
     "data",
@@ -103,16 +101,18 @@ val err := mgr.WaitForSelectedNotice(
 #### Direct Notify
 Notify everyone that have been waiting in the room
 ```go
-mgr.Notify(roomID, gopolling.Message{
+mgr.Notify(
+    // room
+    room,
     // data being sent
-    Data: "data to notify client",
+    "data to notify client",
     // error
-    Error: nil,
+    nil,
     // selector that specify the receiving side, if no one match the selector, message will be discarded
-    Selector: gopolling.S{
+    gopolling.S{
         "id": "xxx",
-    }
-})
+    },
+)
 ```
 #### Event Listener
 Listen to event when request was made and reply immediately. The reply message will only notify the one who
