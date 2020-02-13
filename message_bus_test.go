@@ -60,7 +60,7 @@ func TestGoroutineBus_PublishSubscribe(t *testing.T) {
 				t.Error("cannot receive message")
 				wg.Done()
 			case msg := <-sub.Receive():
-				if msg.Payload.Data() != data {
+				if msg.Data != data {
 					t.Error("invalid data")
 				}
 				wg.Done()
@@ -70,7 +70,7 @@ func TestGoroutineBus_PublishSubscribe(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	if err := bus.Publish(room, data, nil, S{}); err != nil {
+	if err := bus.Publish(room, Message{data, nil, S{}}); err != nil {
 		t.Error(err)
 	}
 

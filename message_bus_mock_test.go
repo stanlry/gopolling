@@ -9,57 +9,6 @@ import (
 	reflect "reflect"
 )
 
-// MockPayload is a mock of Payload interface
-type MockPayload struct {
-	ctrl     *gomock.Controller
-	recorder *MockPayloadMockRecorder
-}
-
-// MockPayloadMockRecorder is the mock recorder for MockPayload
-type MockPayloadMockRecorder struct {
-	mock *MockPayload
-}
-
-// NewMockPayload creates a new mock instance
-func NewMockPayload(ctrl *gomock.Controller) *MockPayload {
-	mock := &MockPayload{ctrl: ctrl}
-	mock.recorder = &MockPayloadMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockPayload) EXPECT() *MockPayloadMockRecorder {
-	return m.recorder
-}
-
-// ByteData mocks base method
-func (m *MockPayload) Data() interface{} {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ByteData")
-	ret0, _ := ret[0].(interface{})
-	return ret0
-}
-
-// ByteData indicates an expected call of ByteData
-func (mr *MockPayloadMockRecorder) Data() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ByteData", reflect.TypeOf((*MockPayload)(nil).Data))
-}
-
-// Decode mocks base method
-func (m *MockPayload) Decode(arg0 interface{}) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Decode", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Decode indicates an expected call of Decode
-func (mr *MockPayloadMockRecorder) Decode(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decode", reflect.TypeOf((*MockPayload)(nil).Decode), arg0)
-}
-
 // MockSubscription is a mock of Subscription interface
 type MockSubscription struct {
 	ctrl     *gomock.Controller
@@ -84,10 +33,10 @@ func (m *MockSubscription) EXPECT() *MockSubscriptionMockRecorder {
 }
 
 // Receive mocks base method
-func (m *MockSubscription) Receive() <-chan Msg {
+func (m *MockSubscription) Receive() <-chan Message {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Receive")
-	ret0, _ := ret[0].(<-chan Msg)
+	ret0, _ := ret[0].(<-chan Message)
 	return ret0
 }
 
@@ -121,17 +70,17 @@ func (m *MockPubSub) EXPECT() *MockPubSubMockRecorder {
 }
 
 // Publish mocks base method
-func (m *MockPubSub) Publish(arg0 string, arg1 interface{}, arg2 error, arg3 S) error {
+func (m *MockPubSub) Publish(arg0 string, arg1 Message) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Publish", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "Publish", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Publish indicates an expected call of Publish
-func (mr *MockPubSubMockRecorder) Publish(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockPubSubMockRecorder) Publish(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockPubSub)(nil).Publish), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockPubSub)(nil).Publish), arg0, arg1)
 }
 
 // Subscribe mocks base method
@@ -271,17 +220,17 @@ func (m *MockMessageBus) EXPECT() *MockMessageBusMockRecorder {
 }
 
 // Publish mocks base method
-func (m *MockMessageBus) Publish(arg0 string, arg1 interface{}, arg2 error, arg3 S) error {
+func (m *MockMessageBus) Publish(arg0 string, arg1 Message) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Publish", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "Publish", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Publish indicates an expected call of Publish
-func (mr *MockMessageBusMockRecorder) Publish(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockMessageBusMockRecorder) Publish(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockMessageBus)(nil).Publish), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockMessageBus)(nil).Publish), arg0, arg1)
 }
 
 // Subscribe mocks base method

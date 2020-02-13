@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"github.com/gomodule/redigo/redis"
 	"github.com/stanlry/gopolling"
-	"sync"
 	"time"
 )
 
@@ -40,7 +39,7 @@ func newRedisSubscription(con redis.Conn, log gopolling.Log, roomID string) (gop
 	s := RedisSubscription{
 		con: subcon,
 		log: log,
-		ch:  make(chan gopolling.Msg),
+		ch:  make(chan gopolling.Message),
 	}
 
 	go s.startListen()
@@ -51,20 +50,15 @@ func newRedisSubscription(con redis.Conn, log gopolling.Log, roomID string) (gop
 type RedisSubscription struct {
 	con redis.PubSubConn
 	log gopolling.Log
-	ch  chan gopolling.Msg
-
-	m sync.RWMutex
+	ch  chan gopolling.Message
 }
 
-func (r *RedisSubscription) tryPushToChannel(message gopolling.Msg) (result bool) {
+func (r *RedisSubscription) tryPushToChannel(message gopolling.Message) (result bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			result = false
 		}
 	}()
-
-	r.m.RLock()
-	defer r.m.RUnlock()
 
 	r.ch <- message
 	return true
@@ -75,8 +69,7 @@ loop:
 	for {
 		switch v := r.con.Receive().(type) {
 		case redis.Message:
-			var msg gopolling.Msg
-			msg.Payload = &redisPayload{}
+			var msg gopolling.Message
 			if err := json.Unmarshal(v.Data, &msg); err != nil {
 				msg.Error = err
 			}
@@ -85,7 +78,7 @@ loop:
 				break loop
 			}
 		case error:
-			var msg gopolling.Msg
+			var msg gopolling.Message
 			msg.Error = v
 
 			if !r.tryPushToChannel(msg) {
@@ -99,14 +92,12 @@ loop:
 	}
 }
 
-func (r *RedisSubscription) Receive() <-chan gopolling.Msg {
+func (r *RedisSubscription) Receive() <-chan gopolling.Message {
 	return r.ch
 }
 
 func (r *RedisSubscription) Unsubscribe() error {
-	r.m.Lock()
 	close(r.ch)
-	r.m.Unlock()
 	if err := r.con.Unsubscribe(); err != nil {
 		r.log.Errorf("fail to unsubscribe from redis, error: ", err)
 		return err
@@ -139,9 +130,8 @@ type RedisAdapter struct {
 	log  gopolling.Log
 }
 
-func (r *RedisAdapter) Find(key string) (gopolling.Msg, bool) {
-	var msg gopolling.Msg
-	msg.Payload = &redisPayload{}
+func (r *RedisAdapter) Find(key string) (gopolling.Message, bool) {
+	var msg gopolling.Message
 
 	con := r.pool.Get()
 	b, err := redis.Bytes(con.Do("GET", key))
@@ -165,18 +155,8 @@ func (r *RedisAdapter) Find(key string) (gopolling.Msg, bool) {
 	return msg, true
 }
 
-func (r *RedisAdapter) Save(key string, val interface{}, err error, t int) {
+func (r *RedisAdapter) Save(key string, msg gopolling.Message, t int) {
 	con := r.pool.Get()
-
-	valbyte, err := json.Marshal(val)
-	if err != nil {
-		r.log.Errorf("fail to marshal value, error: %v", err)
-		return
-	}
-	msg := gopolling.Msg{
-		Payload: newRedisPayload(valbyte),
-		Error:   err,
-	}
 
 	st, err := json.Marshal(msg)
 	if err != nil {
@@ -196,17 +176,8 @@ func (r *RedisAdapter) SetLog(l gopolling.Log) {
 	r.log = l
 }
 
-func (r *RedisAdapter) Publish(channel string, val interface{}, err error, selector gopolling.S) error {
-	st, err := json.Marshal(val)
-	if err != nil {
-		return err
-	}
-
-	data, _ := json.Marshal(gopolling.Msg{
-		Payload:  newRedisPayload(st),
-		Error:    err,
-		Selector: selector,
-	})
+func (r *RedisAdapter) Publish(channel string, msg gopolling.Message) error {
+	data, _ := json.Marshal(msg)
 
 	con := r.pool.Get()
 	if _, err := con.Do("PUBLISH", channel, data); err != nil {

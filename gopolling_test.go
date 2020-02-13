@@ -21,7 +21,7 @@ func TestPollingWithListener(t *testing.T) {
 	time.Sleep(1 * time.Microsecond)
 
 	val, err := mgr.WaitForNotice(context.TODO(), roomID, senderData)
-	if val.Data() != receivedData || err != nil {
+	if val != receivedData || err != nil {
 		t.Errorf("invalid return: val: %v, err: %v", val, err)
 	}
 }
@@ -38,7 +38,7 @@ func TestPollingWithNotifier(t *testing.T) {
 	}()
 
 	val, err := mgr.WaitForSelectedNotice(context.TODO(), roomID, data, S{"name": "567"})
-	if val.Data() != data || err != nil {
+	if val != data || err != nil {
 		t.Errorf("invalid return: val: %v, err: %v", val, err)
 	}
 }
@@ -55,7 +55,7 @@ func TestPubPolling(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			val, err := mgr.WaitForNotice(context.TODO(), room, nil)
-			if val.Data() != data || err != nil {
+			if val != data || err != nil {
 				t.Errorf("invalid return: val: %v, err: %v", val, err)
 			}
 			wg.Done()

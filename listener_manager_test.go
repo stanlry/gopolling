@@ -38,7 +38,7 @@ func TestListenerManager_Notify(t *testing.T) {
 	notifyData := "testNotify"
 	ch := make(chan Event)
 	bus.EXPECT().Dequeue(queuePrefix + room).Return(ch).Times(2)
-	bus.EXPECT().Publish(pubsubPrefix+room, notifyData, nil, gomock.Any()).Times(1)
+	bus.EXPECT().Publish(pubsubPrefix+room, gomock.Any()).Times(1)
 
 	mgr.Subscribe(room, func(event Event, callback *Callback) {
 		callback.Reply(notifyData, nil)

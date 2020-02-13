@@ -97,24 +97,24 @@ type GoPolling struct {
 	pubsubPrefix string
 }
 
-func (g *GoPolling) WaitForNotice(ctx context.Context, roomID string, data interface{}) (Payload, error) {
+func (g *GoPolling) WaitForNotice(ctx context.Context, roomID string, data interface{}) (interface{}, error) {
 	if g.buffer != nil {
 		key := bufferKey{roomID, S{}}
 		hashedKey := getKeyHash(key)
 		if val, ok := g.buffer.Find(hashedKey); ok {
-			return val.Payload, val.Error
+			return val.Data, val.Error
 		}
 	}
 
 	return g.pollingMgr.WaitForNotice(ctx, roomID, data, S{})
 }
 
-func (g *GoPolling) WaitForSelectedNotice(ctx context.Context, roomID string, data interface{}, selector S) (Payload, error) {
+func (g *GoPolling) WaitForSelectedNotice(ctx context.Context, roomID string, data interface{}, selector S) (interface{}, error) {
 	if g.buffer != nil {
 		key := bufferKey{roomID, selector}
 		hashedKey := getKeyHash(key)
 		if val, ok := g.buffer.Find(hashedKey); ok {
-			return val.Payload, val.Error
+			return val.Data, val.Error
 		}
 	}
 
@@ -126,11 +126,12 @@ func (g *GoPolling) SubscribeListener(roomID string, lf ListenerFunc) {
 }
 
 func (g *GoPolling) Notify(roomID string, data interface{}, err error, selector S) error {
+	msg := Message{data, err, selector}
 	if g.buffer != nil {
 		key := bufferKey{roomID, selector}
 		hashedKey := getKeyHash(key)
-		g.buffer.Save(hashedKey, data, err, g.retention)
+		g.buffer.Save(hashedKey, msg, g.retention)
 	}
 
-	return g.bus.Publish(g.pubsubPrefix+roomID, data, err, selector)
+	return g.bus.Publish(g.pubsubPrefix+roomID, msg)
 }

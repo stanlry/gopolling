@@ -25,23 +25,12 @@ type Event struct {
 	Selector S
 }
 
-type Payload interface {
-	Data() interface{}
-	Decode(interface{}) error
-}
-
-type Msg struct {
-	Payload  Payload
-	Error    error
-	Selector S
-}
-
 type Subscription interface {
-	Receive() <-chan Msg
+	Receive() <-chan Message
 }
 
 type PubSub interface {
-	Publish(string, interface{}, error, S) error
+	Publish(string, Message) error
 	Subscribe(string) (Subscription, error)
 	Unsubscribe(Subscription) error
 }
@@ -62,23 +51,6 @@ type MessageBus interface {
 	Loggable
 }
 
-func newGoroutinePayload(data interface{}) Payload {
-	return &goroutinePayload{data: data}
-}
-
-type goroutinePayload struct {
-	data interface{}
-}
-
-func (g *goroutinePayload) Data() interface{} {
-	return g.data
-}
-
-func (g *goroutinePayload) Decode(val interface{}) error {
-	val = g.data
-	return nil
-}
-
 func newGoroutineBus() MessageBus {
 	return &GoroutineBus{
 		subscribers: cmap.New(),
@@ -86,7 +58,7 @@ func newGoroutineBus() MessageBus {
 	}
 }
 
-func newGoroutineSubscription(room, id string, ch chan Msg) *goroutineSubscription {
+func newGoroutineSubscription(room, id string, ch chan Message) *goroutineSubscription {
 	return &goroutineSubscription{
 		room: room,
 		id:   id,
@@ -95,17 +67,17 @@ func newGoroutineSubscription(room, id string, ch chan Msg) *goroutineSubscripti
 }
 
 type goroutineSubscription struct {
-	ch   chan Msg
+	ch   chan Message
 	room string
 	id   string
 }
 
-func (g *goroutineSubscription) Receive() <-chan Msg {
+func (g *goroutineSubscription) Receive() <-chan Message {
 	return g.ch
 }
 
 type subQueue struct {
-	subs map[string]chan Msg
+	subs map[string]chan Message
 	m    sync.RWMutex
 }
 
@@ -121,7 +93,7 @@ func (q *subQueue) Del(id string) {
 	q.m.Unlock()
 }
 
-type iterFunc func(string, chan Msg)
+type iterFunc func(string, chan Message)
 
 func (q *subQueue) IterCb(fn iterFunc) {
 	q.m.RLock()
@@ -151,15 +123,10 @@ func (g *GoroutineBus) SetLog(l Log) {
 	g.log = l
 }
 
-func (g *GoroutineBus) Publish(roomID string, data interface{}, err error, selector S) error {
+func (g *GoroutineBus) Publish(roomID string, msg Message) error {
 	if val, ok := g.subscribers.Get(roomID); ok {
 		subq := val.(*subQueue)
-		msg := Msg{
-			Payload:  newGoroutinePayload(data),
-			Error:    err,
-			Selector: selector,
-		}
-		subq.IterCb(func(id string, ch chan Msg) {
+		subq.IterCb(func(id string, ch chan Message) {
 			ch <- msg
 		})
 	} else {
@@ -170,7 +137,7 @@ func (g *GoroutineBus) Publish(roomID string, data interface{}, err error, selec
 }
 
 func (g *GoroutineBus) Subscribe(roomID string) (Subscription, error) {
-	ch := make(chan Msg)
+	ch := make(chan Message)
 	id := xid.New()
 	sub := newGoroutineSubscription(roomID, id.String(), ch)
 	if val, ok := g.subscribers.Get(roomID); ok {
@@ -178,7 +145,7 @@ func (g *GoroutineBus) Subscribe(roomID string) (Subscription, error) {
 		subq.Add(sub)
 	} else {
 		subq := subQueue{
-			subs: make(map[string]chan Msg),
+			subs: make(map[string]chan Message),
 		}
 		subq.Add(sub)
 		g.subscribers.Set(roomID, &subq)

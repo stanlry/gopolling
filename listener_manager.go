@@ -53,7 +53,7 @@ func (m *ListenerManager) execListener(roomID string, lf ListenerFunc, ev Event)
 	r := NewCallback(roomID)
 	lf(ev, &r)
 	if r.notified {
-		if err := m.bus.Publish(m.pubsubPrefix+roomID, r.data, r.err, ev.Selector); err != nil {
+		if err := m.bus.Publish(m.pubsubPrefix+roomID, Message{r.data, r.err, ev.Selector}); err != nil {
 			m.log.Errorf("fail to publish message, roomID: %v", roomID)
 		}
 	}

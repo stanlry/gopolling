@@ -38,7 +38,7 @@ type PollingManager struct {
 
 const idKey = "_gopolling_id"
 
-func (m *PollingManager) WaitForNotice(ctx context.Context, roomID string, data interface{}, sel S) (Payload, error) {
+func (m *PollingManager) WaitForNotice(ctx context.Context, roomID string, data interface{}, sel S) (interface{}, error) {
 	sub, err := m.bus.Subscribe(m.pubsubPrefix + roomID)
 	if err != nil {
 		return nil, err
@@ -61,14 +61,14 @@ func (m *PollingManager) WaitForNotice(ctx context.Context, roomID string, data 
 wait:
 	select {
 	case <-ctx.Done():
-		return nil, ErrCancelled
+		return nil, context.Canceled
 	case <-tick:
 		return nil, ErrTimeout
 	case msg := <-sub.Receive():
 		// if msg is specified with event id
 		if val, ok := msg.Selector[idKey]; ok {
 			if val == id {
-				return msg.Payload, msg.Error
+				return msg.Data, msg.Error
 			} else {
 				goto wait
 			}
@@ -77,7 +77,7 @@ wait:
 		if !compareSelectors(msg.Selector, sel) {
 			goto wait
 		}
-		return msg.Payload, msg.Error
+		return msg.Data, msg.Error
 	}
 }
 
