@@ -28,7 +28,7 @@ var mgr = gopolling.New(gopolling.DefaultOption)
 func main() {
     http.HandleFunc("/message", func(w http.ResponseWriter, r *http.Request) {
         resp, _ := mgr.WaitForNotice(r.Context(), room, nil)
-        st, _ := json.Marshal(resp.Data())
+        st, _ := json.Marshal(resp)
         w.Write(st)
     })
     
@@ -124,7 +124,7 @@ mgr.SubscribeListener(roomID, func(ev gopolling.Event, cb *gopolling.Callback){
     xx := ev.Data.(your_struct)
 
     // reply to immediately, you can skip this part if no reply is needed
-    resp := []string{"I'm", "data"}
+    data := "hi there"
     cb.Reply(resp, nil)
 }) 
 ```
