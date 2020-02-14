@@ -45,7 +45,8 @@ func (m *PollingManager) WaitForNotice(ctx context.Context, roomID string, data 
 	}
 	defer m.bus.Unsubscribe(sub)
 
-	tick := time.Tick(m.timeout)
+	tick := time.NewTicker(m.timeout)
+	defer tick.Stop()
 
 	// generate event id
 	id := xid.New().String()
@@ -62,7 +63,7 @@ wait:
 	select {
 	case <-ctx.Done():
 		return nil, context.Canceled
-	case <-tick:
+	case <-tick.C:
 		return nil, ErrTimeout
 	case msg := <-sub.Receive():
 		// if msg is specified with event id

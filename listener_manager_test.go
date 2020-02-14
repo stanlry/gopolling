@@ -28,7 +28,7 @@ func TestListenerManager_Subscribe(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 }
 
-func TestListenerManager_Notify(t *testing.T) {
+func TestListenerManager_ListenAndReply(t *testing.T) {
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 
@@ -37,13 +37,15 @@ func TestListenerManager_Notify(t *testing.T) {
 	room := "room1"
 	notifyData := "testNotify"
 	ch := make(chan Event)
-	bus.EXPECT().Dequeue(queuePrefix + room).Return(ch).Times(2)
-	bus.EXPECT().Publish(pubsubPrefix+room, gomock.Any()).Times(1)
+	bus.EXPECT().Dequeue(queuePrefix + room).Return(ch).Times(1)
+	bus.EXPECT().Publish(pubsubPrefix+room, gomock.Any()).Return(nil).Times(2)
 
 	mgr.Subscribe(room, func(event Event, callback *Callback) {
 		callback.Reply(notifyData, nil)
 	})
 
+	//wg.Add(1)
+	ch <- Event{}
 	ch <- Event{}
 
 	time.Sleep(10 * time.Millisecond)

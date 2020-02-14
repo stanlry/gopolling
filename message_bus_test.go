@@ -10,11 +10,16 @@ func TestGoroutineBus_EnqueueDequeue(t *testing.T) {
 	bus := newGoroutineBus()
 
 	var wg sync.WaitGroup
-	room := "testroom"
+	room := "test_queue"
 	data := "test"
+
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
+		tick := time.Tick(1 * time.Second)
 		select {
+		case <-tick:
+			t.Error("timeout")
+			break
 		case ev := <-bus.Dequeue(room):
 			if ev.Data != data {
 				t.Error("wrong event dat")
@@ -23,6 +28,8 @@ func TestGoroutineBus_EnqueueDequeue(t *testing.T) {
 		}
 		wg.Done()
 	}()
+
+	time.Sleep(10 * time.Millisecond)
 
 	bus.Enqueue(room, Event{
 		Data: data,

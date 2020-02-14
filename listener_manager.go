@@ -60,11 +60,8 @@ func (m *ListenerManager) execListener(roomID string, lf ListenerFunc, ev Event)
 }
 
 func (m *ListenerManager) listen(roomID string, lf ListenerFunc) {
-	for {
-		select {
-		case event := <-m.bus.Dequeue(m.queuePrefix + roomID):
-			go m.execListener(roomID, lf, event)
-		}
+	for event := range m.bus.Dequeue(m.queuePrefix + roomID) {
+		go m.execListener(roomID, lf, event)
 	}
 }
 

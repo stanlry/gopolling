@@ -68,7 +68,7 @@ func buildOption(option Option) Option {
 	return op
 }
 
-func New(opt Option) GoPolling {
+func New(opt Option) *GoPolling {
 	var gp GoPolling
 
 	option := buildOption(opt)
@@ -85,7 +85,7 @@ func New(opt Option) GoPolling {
 	gp.retention = option.Retention
 	gp.pubsubPrefix = option.PubSubPrefix
 
-	return gp
+	return &gp
 }
 
 type GoPolling struct {
