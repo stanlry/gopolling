@@ -109,22 +109,6 @@ func (r *RedisSubscription) Unsubscribe() error {
 	return nil
 }
 
-func newRedisPayload(data []byte) *redisPayload {
-	return &redisPayload{ByteData: data}
-}
-
-type redisPayload struct {
-	ByteData []byte
-}
-
-func (r *redisPayload) Data() (out interface{}) {
-	return r.ByteData
-}
-
-func (r *redisPayload) Decode(t interface{}) error {
-	return json.Unmarshal(r.ByteData, t)
-}
-
 type RedisAdapter struct {
 	pool redis.Pool
 	log  gopolling.Log
