@@ -1,5 +1,6 @@
 GoPolling
 ==================
+[![Github Action](https://github.com/stanlry/gopolling/workflows/Test%20GoPolling/badge.svg)](https://github.com/stanlry/gopolling/workflows/Test%20GoPolling/badge.svg)
 [![codecov](https://codecov.io/gh/stanlry/gopolling/branch/master/graph/badge.svg)](https://codecov.io/gh/stanlry/gopolling)
 [![Go Report Card](https://goreportcard.com/badge/github.com/stanlry/gopolling)](https://goreportcard.com/report/github.com/stanlry/gopolling)
 
