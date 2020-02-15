@@ -33,8 +33,14 @@ func TestPollingWithNotifier(t *testing.T) {
 
 	go func() {
 		time.Sleep(10 * time.Millisecond)
-		mgr.Notify(roomID, data, nil, S{"name": "123"})
-		mgr.Notify(roomID, data, nil, S{"name": "567"})
+		if err := mgr.Notify(roomID, data, nil, S{"name": "123"}); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := mgr.Notify(roomID, data, nil, S{"name": "567"}); err != nil {
+			t.Error(err)
+			return
+		}
 	}()
 
 	val, err := mgr.WaitForSelectedNotice(context.TODO(), roomID, data, S{"name": "567"})
@@ -63,7 +69,10 @@ func TestPubPolling(t *testing.T) {
 	}
 
 	time.Sleep(100 * time.Millisecond)
-	mgr.Notify(room, data, nil, S{})
+	if err := mgr.Notify(room, data, nil, S{}); err != nil {
+		t.Error(err)
+		return
+	}
 
 	wg.Wait()
 }

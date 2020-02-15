@@ -56,7 +56,9 @@ func TestGoroutineBus_PublishSubscribe(t *testing.T) {
 			}
 
 			if index%11 == 0 {
-				bus.Unsubscribe(sub)
+				if err := bus.Unsubscribe(sub); err != nil {
+					t.Error(err)
+				}
 				wg.Done()
 				return
 			}

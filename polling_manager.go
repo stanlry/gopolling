@@ -43,7 +43,12 @@ func (m *PollingManager) WaitForNotice(ctx context.Context, roomID string, data 
 	if err != nil {
 		return nil, err
 	}
-	defer m.bus.Unsubscribe(sub)
+
+	defer func() {
+		if err := m.bus.Unsubscribe(sub); err != nil {
+			m.log.Errorf("unsubscribe unsuccessful, error: ", err)
+		}
+	}()
 
 	tick := time.NewTicker(m.timeout)
 	defer tick.Stop()

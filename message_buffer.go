@@ -22,7 +22,7 @@ func getKeyHash(k bufferKey) string {
 	}
 
 	hfunc := fnv.New32a()
-	hfunc.Write([]byte(st.String()))
+	_, _ = hfunc.Write([]byte(st.String()))
 	return hex.EncodeToString(hfunc.Sum(nil))
 }
 
