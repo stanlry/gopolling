@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// MessageBuffer define the interface use to save and fetch message
 type MessageBuffer interface {
 	Find(string) (Message, bool)
 	Save(string, Message, int)

@@ -1,5 +1,6 @@
-//go:generate mockgen -destination=message_bus_mock_test.go -package=gopolling -source=message_bus.go
 package gopolling
+
+//go:generate mockgen -destination=message_bus_mock_test.go -package=gopolling -source=message_bus.go
 
 import (
 	"errors"
@@ -12,8 +13,10 @@ var (
 	ErrNotSubscriber = errors.New("no subscriber")
 )
 
+// A shortcut to define string map
 type S map[string]string
 
+// Message struct defines the payload which being sent through message bus from notifier to the waiting client
 type Message struct {
 	Channel  string
 	Data     interface{}
@@ -21,6 +24,7 @@ type Message struct {
 	Selector S
 }
 
+// Event struct is the payload being sent from client to the listening subscriber
 type Event struct {
 	Channel  string
 	Data     interface{}
@@ -41,10 +45,6 @@ type EventQueue interface {
 	Enqueue(string, Event)
 	// A blocking method wait til receive task
 	Dequeue(string) <-chan Event
-}
-
-type Loggable interface {
-	SetLog(Log)
 }
 
 type MessageBus interface {

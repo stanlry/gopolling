@@ -98,15 +98,7 @@ type GoPolling struct {
 }
 
 func (g *GoPolling) WaitForNotice(ctx context.Context, channel string, data interface{}) (interface{}, error) {
-	if g.buffer != nil {
-		key := bufferKey{channel, S{}}
-		hashedKey := getKeyHash(key)
-		if val, ok := g.buffer.Find(hashedKey); ok {
-			return val.Data, val.Error
-		}
-	}
-
-	return g.pollingMgr.WaitForNotice(ctx, channel, data, S{})
+	return g.WaitForSelectedNotice(ctx, channel, data, S{})
 }
 
 func (g *GoPolling) WaitForSelectedNotice(ctx context.Context, channel string, data interface{}, selector S) (interface{}, error) {
