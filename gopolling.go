@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	queuePrefix  = "gpqueue:"
-	pubsubPrefix = "gppubsub:"
+	queuePrefix  = "gpqueue_"
+	pubsubPrefix = "gppubsub_"
 )
 
 type Option struct {
@@ -97,41 +97,41 @@ type GoPolling struct {
 	pubsubPrefix string
 }
 
-func (g *GoPolling) WaitForNotice(ctx context.Context, roomID string, data interface{}) (interface{}, error) {
+func (g *GoPolling) WaitForNotice(ctx context.Context, channel string, data interface{}) (interface{}, error) {
 	if g.buffer != nil {
-		key := bufferKey{roomID, S{}}
+		key := bufferKey{channel, S{}}
 		hashedKey := getKeyHash(key)
 		if val, ok := g.buffer.Find(hashedKey); ok {
 			return val.Data, val.Error
 		}
 	}
 
-	return g.pollingMgr.WaitForNotice(ctx, roomID, data, S{})
+	return g.pollingMgr.WaitForNotice(ctx, channel, data, S{})
 }
 
-func (g *GoPolling) WaitForSelectedNotice(ctx context.Context, roomID string, data interface{}, selector S) (interface{}, error) {
+func (g *GoPolling) WaitForSelectedNotice(ctx context.Context, channel string, data interface{}, selector S) (interface{}, error) {
 	if g.buffer != nil {
-		key := bufferKey{roomID, selector}
+		key := bufferKey{channel, selector}
 		hashedKey := getKeyHash(key)
 		if val, ok := g.buffer.Find(hashedKey); ok {
 			return val.Data, val.Error
 		}
 	}
 
-	return g.pollingMgr.WaitForNotice(ctx, roomID, data, selector)
+	return g.pollingMgr.WaitForNotice(ctx, channel, data, selector)
 }
 
 func (g *GoPolling) SubscribeListener(roomID string, lf ListenerFunc) {
 	g.listenerMgr.Subscribe(roomID, lf)
 }
 
-func (g *GoPolling) Notify(roomID string, data interface{}, err error, selector S) error {
-	msg := Message{data, err, selector}
+func (g *GoPolling) Notify(channel string, data interface{}, err error, selector S) error {
+	msg := Message{channel, data, err, selector}
 	if g.buffer != nil {
-		key := bufferKey{roomID, selector}
+		key := bufferKey{channel, selector}
 		hashedKey := getKeyHash(key)
 		g.buffer.Save(hashedKey, msg, g.retention)
 	}
 
-	return g.bus.Publish(g.pubsubPrefix+roomID, msg)
+	return g.bus.Publish(g.pubsubPrefix+channel, msg)
 }

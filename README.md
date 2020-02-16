@@ -22,20 +22,20 @@ import (
     "net/http"
 )
 
-var room = "test"
+var channel = "test"
 
 var mgr = gopolling.New(gopolling.DefaultOption)
 
 func main() {
     http.HandleFunc("/message", func(w http.ResponseWriter, r *http.Request) {
-        resp, _ := mgr.WaitForNotice(r.Context(), room, nil)
+        resp, _ := mgr.WaitForNotice(r.Context(), channel, nil)
         st, _ := json.Marshal(resp)
         w.Write(st)
     })
     
     http.HandleFunc("/notify", func(w http.ResponseWriter, r *http.Request) {
         data := r.URL.Query().Get("data")
-        mgr.Notify(room, data, nil, nil)
+        mgr.Notify(channel, data, nil, nil)
     })
         
     log.Println("start serve on :80")
@@ -79,8 +79,8 @@ wait for notice from listener or notifier
 resp, err := mgr.WaitForNotice(
     // request context
     r.Context(), 
-    // room is the classification, everyone in the same room will be notified if no selector is specified
-    room, 
+    // channel
+    channel, 
     // send the data to listener, it will be discarded if no listener exist
     "data",
 })
@@ -89,9 +89,9 @@ only wait for notice with matched selector
 ```go
 resp, err := mgr.WaitForSelectedNotice(
     r.Context(),
-    room,
+    channel,
     "data",
-    // specify identity in the room, this selector is essential a string map
+    // specify identity in the channel, this selector is essential a string map
     gopolling.S{
         "id": "xxx",
         "name": "xxx",
@@ -100,11 +100,11 @@ resp, err := mgr.WaitForSelectedNotice(
 ```
 
 #### Direct Notify
-Notify everyone that have been waiting in the room
+Notify everyone that have been waiting in the channel
 ```go
 mgr.Notify(
-    // room
-    room,
+    // channel
+    channel,
     // data being sent
     "data to notify client",
     // error
@@ -120,7 +120,7 @@ Listen to event when request was made and reply immediately. The reply message w
 make the request
 ```go
 // subscribe listener
-mgr.SubscribeListener(roomID, func(ev gopolling.Event, cb *gopolling.Callback){
+mgr.SubscribeListener(channel, func(ev gopolling.Event, cb *gopolling.Callback){
     // event data
     xx := ev.Data.(your_struct)
 

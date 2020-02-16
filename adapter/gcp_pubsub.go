@@ -186,7 +186,9 @@ func (g *GCPPubSub) handleEvent(ctx context.Context, m *pubsub.Message) {
 	m.Ack()
 }
 
-func (g *GCPPubSub) listenToSubscription(ctx context.Context, topicName string, exact bool, handler func(context.Context, *pubsub.Message)) {
+type pubsubHandler func(context.Context, *pubsub.Message)
+
+func (g *GCPPubSub) listenToSubscription(ctx context.Context, topicName string, exact bool, handler pubsubHandler) {
 	subID := subPrefix + topicName
 	if !exact {
 		subID = subPrefix + xid.New().String()

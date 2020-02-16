@@ -10,7 +10,7 @@ func TestGoroutineBus_EnqueueDequeue(t *testing.T) {
 	bus := newGoroutineBus()
 
 	var wg sync.WaitGroup
-	room := "test_queue"
+	channel := "test_queue"
 	data := "test"
 
 	wg.Add(1)
@@ -20,7 +20,7 @@ func TestGoroutineBus_EnqueueDequeue(t *testing.T) {
 		case <-tick:
 			t.Error("timeout")
 			break
-		case ev := <-bus.Dequeue(room):
+		case ev := <-bus.Dequeue(channel):
 			if ev.Data != data {
 				t.Error("wrong event dat")
 			}
@@ -31,7 +31,7 @@ func TestGoroutineBus_EnqueueDequeue(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	bus.Enqueue(room, Event{
+	bus.Enqueue(channel, Event{
 		Data: data,
 	})
 
@@ -41,14 +41,14 @@ func TestGoroutineBus_EnqueueDequeue(t *testing.T) {
 func TestGoroutineBus_PublishSubscribe(t *testing.T) {
 	bus := newGoroutineBus()
 
-	room := "test-room"
+	channel := "test-channel"
 	data := "test data"
 
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		go func(index int) {
-			sub, err := bus.Subscribe(room)
+			sub, err := bus.Subscribe(channel)
 			if err != nil {
 				t.Error(err)
 				wg.Done()
@@ -79,7 +79,7 @@ func TestGoroutineBus_PublishSubscribe(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	if err := bus.Publish(room, Message{data, nil, S{}}); err != nil {
+	if err := bus.Publish(channel, Message{channel, data, nil, S{}}); err != nil {
 		t.Error(err)
 	}
 

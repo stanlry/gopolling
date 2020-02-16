@@ -38,8 +38,9 @@ type PollingManager struct {
 
 const idKey = "_gopolling_id"
 
-func (m *PollingManager) WaitForNotice(ctx context.Context, roomID string, data interface{}, sel S) (interface{}, error) {
-	sub, err := m.bus.Subscribe(m.pubsubPrefix + roomID)
+func (m *PollingManager) WaitForNotice(ctx context.Context, channel string, data interface{}, sel S) (interface{}, error) {
+	rChannel := m.pubsubPrefix + channel
+	sub, err := m.bus.Subscribe(rChannel)
 	if err != nil {
 		return nil, err
 	}
@@ -57,11 +58,13 @@ func (m *PollingManager) WaitForNotice(ctx context.Context, roomID string, data 
 	id := xid.New().String()
 	sel[idKey] = id
 	// enqueue event
+	qChan := m.queuePrefix + channel
 	tk := Event{
+		Channel:  qChan,
 		Data:     data,
 		Selector: sel,
 	}
-	m.bus.Enqueue(m.queuePrefix+roomID, tk)
+	m.bus.Enqueue(qChan, tk)
 	delete(sel, idKey)
 
 wait:

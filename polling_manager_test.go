@@ -79,21 +79,21 @@ func TestPollingManager_ReplyID(t *testing.T) {
 
 	data := "test data"
 	ch := make(chan Message, 2)
-	room := "test"
+	channel := "test"
 
 	mockBus := NewMockMessageBus(mc)
 	mockSub := NewMockSubscription(mc)
 
 	mgr := NewPollingManager(mockBus, 10*time.Millisecond, queuePrefix, pubsubPrefix)
-	mockBus.EXPECT().Subscribe(pubsubPrefix+room).Return(mockSub, nil).Times(1)
+	mockBus.EXPECT().Subscribe(pubsubPrefix+channel).Return(mockSub, nil).Times(1)
 	mockSub.EXPECT().Receive().Return(ch).Times(2)
 	mockBus.EXPECT().Unsubscribe(mockSub).Times(1)
-	mockBus.EXPECT().Enqueue(queuePrefix+room, gomock.Any()).Do(func(roomID string, msg Event) {
+	mockBus.EXPECT().Enqueue(queuePrefix+channel, gomock.Any()).Do(func(roomID string, msg Event) {
 		ch <- Message{Data: data, Selector: S{idKey: msg.Selector[idKey]}}
 	})
 	ch <- Message{Data: data, Selector: S{idKey: "fake id"}}
 
-	val, err := mgr.WaitForNotice(context.TODO(), room, nil, S{})
+	val, err := mgr.WaitForNotice(context.TODO(), channel, nil, S{})
 	if val != data || err != nil {
 		t.Errorf("should have received the message")
 	}

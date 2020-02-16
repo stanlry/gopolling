@@ -15,7 +15,7 @@ type MessageBuffer interface {
 
 func getKeyHash(k bufferKey) string {
 	var st strings.Builder
-	st.WriteString(k.RoomID)
+	st.WriteString(k.Channel)
 	for k, v := range k.Selector {
 		st.WriteString(k)
 		st.WriteString(v)
@@ -27,7 +27,7 @@ func getKeyHash(k bufferKey) string {
 }
 
 type bufferKey struct {
-	RoomID   string
+	Channel  string
 	Selector S
 }
 

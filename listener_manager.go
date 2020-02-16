@@ -4,16 +4,13 @@ import (
 	"sync"
 )
 
-func NewCallback(rid string) Callback {
+func NewCallback() Callback {
 	return Callback{
-		roomID:   rid,
 		notified: false,
 	}
 }
 
 type Callback struct {
-	roomID string
-
 	notified bool
 	data     interface{}
 	err      error
@@ -49,29 +46,30 @@ type ListenerManager struct {
 	queuePrefix  string
 }
 
-func (m *ListenerManager) execListener(roomID string, lf ListenerFunc, ev Event) {
-	r := NewCallback(roomID)
+func (m *ListenerManager) execListener(channel string, lf ListenerFunc, ev Event) {
+	r := NewCallback()
 	lf(ev, &r)
 	if r.notified {
-		if err := m.bus.Publish(m.pubsubPrefix+roomID, Message{r.data, r.err, ev.Selector}); err != nil {
-			m.log.Errorf("fail to publish message, roomID: %v", roomID)
+		pChan := m.pubsubPrefix + channel
+		if err := m.bus.Publish(pChan, Message{pChan, r.data, r.err, ev.Selector}); err != nil {
+			m.log.Errorf("fail to publish message, channel: %v", channel)
 		}
 	}
 }
 
-func (m *ListenerManager) listen(roomID string, lf ListenerFunc) {
-	for event := range m.bus.Dequeue(m.queuePrefix + roomID) {
-		go m.execListener(roomID, lf, event)
+func (m *ListenerManager) listen(channel string, lf ListenerFunc) {
+	for event := range m.bus.Dequeue(m.queuePrefix + channel) {
+		go m.execListener(channel, lf, event)
 	}
 }
 
-func (m *ListenerManager) Subscribe(roomID string, lf ListenerFunc) {
+func (m *ListenerManager) Subscribe(channel string, lf ListenerFunc) {
 	m.m.Lock()
-	if _, ok := m.listeners[roomID]; ok {
+	if _, ok := m.listeners[channel]; ok {
 		return
 	}
-	m.listeners[roomID] = elm{}
+	m.listeners[channel] = elm{}
 	m.m.Unlock()
 
-	go m.listen(roomID, lf)
+	go m.listen(channel, lf)
 }

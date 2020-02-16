@@ -9,10 +9,10 @@ import (
 
 func TestPollingWithListener(t *testing.T) {
 	mgr := New(DefaultOption)
-	roomID := "test-listener"
+	channel := "test-listener"
 	senderData := "send"
 	receivedData := "receive"
-	mgr.SubscribeListener(roomID, func(ev Event, cb *Callback) {
+	mgr.SubscribeListener(channel, func(ev Event, cb *Callback) {
 		if ev.Data != senderData {
 			t.Error("invalid send data")
 		}
@@ -20,7 +20,7 @@ func TestPollingWithListener(t *testing.T) {
 	})
 	time.Sleep(1 * time.Microsecond)
 
-	val, err := mgr.WaitForNotice(context.TODO(), roomID, senderData)
+	val, err := mgr.WaitForNotice(context.TODO(), channel, senderData)
 	if val != receivedData || err != nil {
 		t.Errorf("invalid return: val: %v, err: %v", val, err)
 	}
@@ -28,22 +28,22 @@ func TestPollingWithListener(t *testing.T) {
 
 func TestPollingWithNotifier(t *testing.T) {
 	mgr := New(DefaultOption)
-	roomID := "test"
+	channel := "test"
 	data := "haha data"
 
 	go func() {
 		time.Sleep(10 * time.Millisecond)
-		if err := mgr.Notify(roomID, data, nil, S{"name": "123"}); err != nil {
+		if err := mgr.Notify(channel, data, nil, S{"name": "123"}); err != nil {
 			t.Error(err)
 			return
 		}
-		if err := mgr.Notify(roomID, data, nil, S{"name": "567"}); err != nil {
+		if err := mgr.Notify(channel, data, nil, S{"name": "567"}); err != nil {
 			t.Error(err)
 			return
 		}
 	}()
 
-	val, err := mgr.WaitForSelectedNotice(context.TODO(), roomID, data, S{"name": "567"})
+	val, err := mgr.WaitForSelectedNotice(context.TODO(), channel, data, S{"name": "567"})
 	if val != data || err != nil {
 		t.Errorf("invalid return: val: %v, err: %v", val, err)
 	}
@@ -54,13 +54,13 @@ const ParallelLimit = 10
 func TestPubPolling(t *testing.T) {
 	mgr := New(DefaultOption)
 	var wg sync.WaitGroup
-	room := "test3"
+	channel := "test3"
 	data := "good data"
 
 	for i := 0; i < ParallelLimit; i++ {
 		wg.Add(1)
 		go func() {
-			val, err := mgr.WaitForNotice(context.TODO(), room, nil)
+			val, err := mgr.WaitForNotice(context.TODO(), channel, nil)
 			if val != data || err != nil {
 				t.Errorf("invalid return: val: %v, err: %v", val, err)
 			}
@@ -69,7 +69,7 @@ func TestPubPolling(t *testing.T) {
 	}
 
 	time.Sleep(100 * time.Millisecond)
-	if err := mgr.Notify(room, data, nil, S{}); err != nil {
+	if err := mgr.Notify(channel, data, nil, S{}); err != nil {
 		t.Error(err)
 		return
 	}

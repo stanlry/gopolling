@@ -21,9 +21,9 @@ func TestListenerManager_Subscribe(t *testing.T) {
 
 	mgr, bus := setupListener(mc)
 
-	room := "room1"
-	bus.EXPECT().Dequeue(queuePrefix + room).Times(1)
-	mgr.Subscribe(room, noOpFunc)
+	channel := "room1"
+	bus.EXPECT().Dequeue(queuePrefix + channel).Times(1)
+	mgr.Subscribe(channel, noOpFunc)
 
 	time.Sleep(10 * time.Millisecond)
 }
@@ -34,13 +34,13 @@ func TestListenerManager_ListenAndReply(t *testing.T) {
 
 	mgr, bus := setupListener(mc)
 
-	room := "room1"
+	channel := "room1"
 	notifyData := "testNotify"
 	ch := make(chan Event)
-	bus.EXPECT().Dequeue(queuePrefix + room).Return(ch).Times(1)
-	bus.EXPECT().Publish(pubsubPrefix+room, gomock.Any()).Return(nil).Times(2)
+	bus.EXPECT().Dequeue(queuePrefix + channel).Return(ch).Times(1)
+	bus.EXPECT().Publish(pubsubPrefix+channel, gomock.Any()).Return(nil).Times(2)
 
-	mgr.Subscribe(room, func(event Event, callback *Callback) {
+	mgr.Subscribe(channel, func(event Event, callback *Callback) {
 		callback.Reply(notifyData, nil)
 	})
 

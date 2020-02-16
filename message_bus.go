@@ -15,12 +15,14 @@ var (
 type S map[string]string
 
 type Message struct {
+	Channel  string
 	Data     interface{}
 	Error    error
 	Selector S
 }
 
 type Event struct {
+	Channel  string
 	Data     interface{}
 	Selector S
 }
