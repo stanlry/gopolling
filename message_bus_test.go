@@ -45,7 +45,7 @@ func TestGoroutineBus_PublishSubscribe(t *testing.T) {
 	data := "test data"
 
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 20; i++ {
 		wg.Add(1)
 		go func(index int) {
 			sub, err := bus.Subscribe(channel)
@@ -67,13 +67,12 @@ func TestGoroutineBus_PublishSubscribe(t *testing.T) {
 			select {
 			case <-tick:
 				t.Error("cannot receive message")
-				wg.Done()
 			case msg := <-sub.Receive():
 				if msg.Data != data {
 					t.Error("invalid data")
 				}
-				wg.Done()
 			}
+			wg.Done()
 		}(i)
 	}
 
