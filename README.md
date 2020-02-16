@@ -61,14 +61,14 @@ var mgr = gopolling.New(gopolling.Option{
     // set the timeout for each request, default 120s   
     Timeout: 1 * time.Minute,  
 
-    // message bus, default use goroutine, you can choose redis as messaging bus
+    // message bus, default use goroutine
     Bus: adapter.NewRedisAdapter(":6379", "password"), 
 
-    // message buffer, default use memory, you can choose redis as buffer
+    // message buffer, default use memory
     Buffer: adapter.NewRedisAdapter(":6379", "password"), 
 
     // logger interface, currently support zap and logrus, default will not log any error
-    Logger: zap.New(), 
+    Logger: zap.NewExample().Sugar(), 
 })
 ```
 
@@ -122,10 +122,32 @@ make the request
 // subscribe listener
 mgr.SubscribeListener(channel, func(ev gopolling.Event, cb *gopolling.Callback){
     // event data
-    xx := ev.Data.(your_struct)
+    st := ev.Data.(string)
 
     // reply to immediately, you can skip this part if no reply is needed
     data := "hi there"
     cb.Reply(resp, nil)
 }) 
+```
+
+### Adapters
+
+#### Redis
+Redis is supported for both message bus and message buffer
+```go
+adapter := adapter.NewRedisAdapter("host:port", "password")
+mgr := gopolling.New(gopolling.Option{
+    bus:    adapter,
+    buffer: adapter,
+})
+```
+
+#### GCP Pub/Sub
+GCP Pub/Sub is supported for message bus
+```go
+client := pubsub.NewClient(context.Background(), "project-id")
+adapter := adapter.NewGCPAdapter(client)
+mgr := gopolling.New(gopolling.Option{
+    bus: adapter,
+})
 ```
