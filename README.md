@@ -146,7 +146,7 @@ mgr := gopolling.New(gopolling.Option{
 GCP Pub/Sub is supported for message bus
 ```go
 client := pubsub.NewClient(context.Background(), "project-id")
-adapter := adapter.NewGCPAdapter(client)
+adapter := adapter.NewGCPPubSubAdapter(client)
 mgr := gopolling.New(gopolling.Option{
     bus: adapter,
 })
