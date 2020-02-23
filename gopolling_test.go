@@ -52,7 +52,7 @@ func TestPollingWithNotifier(t *testing.T) {
 const ParallelLimit = 10
 
 func TestPubPolling(t *testing.T) {
-	mgr := New(DefaultOption)
+	mgr := New(Option{Timeout: 2 * time.Second})
 	var wg sync.WaitGroup
 	channel := "test3"
 	data := "good data"

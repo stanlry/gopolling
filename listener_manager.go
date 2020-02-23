@@ -52,7 +52,7 @@ func (m *ListenerManager) execListener(channel string, lf ListenerFunc, ev Event
 	if r.notified {
 		pChan := m.pubsubPrefix + channel
 		if err := m.bus.Publish(pChan, Message{pChan, r.data, r.err, ev.Selector}); err != nil {
-			m.log.Errorf("fail to publish message, channel: %v", channel)
+			m.log.Errorf("fail to publish message, Channel: %v", channel)
 		}
 	}
 }

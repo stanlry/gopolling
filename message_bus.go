@@ -6,7 +6,6 @@ import (
 	"errors"
 	"github.com/orcaman/concurrent-map"
 	"github.com/rs/xid"
-	"sync"
 )
 
 var (
@@ -35,6 +34,24 @@ type Subscription interface {
 	Receive() <-chan Message
 }
 
+func NewDefaultSubscription(channel, id string, ch chan Message) *DefaultSubscription {
+	return &DefaultSubscription{
+		Channel: channel,
+		ID:      id,
+		ch:      ch,
+	}
+}
+
+type DefaultSubscription struct {
+	ch      chan Message
+	Channel string
+	ID      string
+}
+
+func (g *DefaultSubscription) Receive() <-chan Message {
+	return g.ch
+}
+
 type PubSub interface {
 	Publish(string, Message) error
 	Subscribe(string) (Subscription, error)
@@ -60,51 +77,6 @@ func newGoroutineBus() MessageBus {
 	}
 }
 
-func newGoroutineSubscription(room, id string, ch chan Message) *goroutineSubscription {
-	return &goroutineSubscription{
-		room: room,
-		id:   id,
-		ch:   ch,
-	}
-}
-
-type goroutineSubscription struct {
-	ch   chan Message
-	room string
-	id   string
-}
-
-func (g *goroutineSubscription) Receive() <-chan Message {
-	return g.ch
-}
-
-type subQueue struct {
-	subs map[string]chan Message
-	m    sync.RWMutex
-}
-
-func (q *subQueue) Add(sub *goroutineSubscription) {
-	q.m.Lock()
-	q.subs[sub.id] = sub.ch
-	q.m.Unlock()
-}
-
-func (q *subQueue) Del(id string) {
-	q.m.Lock()
-	delete(q.subs, id)
-	q.m.Unlock()
-}
-
-type iterFunc func(string, chan Message)
-
-func (q *subQueue) IterCb(fn iterFunc) {
-	q.m.RLock()
-	for i, v := range q.subs {
-		fn(i, v)
-	}
-	q.m.RUnlock()
-}
-
 type GoroutineBus struct {
 	subscribers cmap.ConcurrentMap
 	queue       cmap.ConcurrentMap
@@ -113,10 +85,10 @@ type GoroutineBus struct {
 }
 
 func (g *GoroutineBus) Unsubscribe(sub Subscription) error {
-	gsub := sub.(*goroutineSubscription)
-	if val, ok := g.subscribers.Get(gsub.room); ok {
-		subq := val.(*subQueue)
-		subq.Del(gsub.id)
+	gsub := sub.(*DefaultSubscription)
+	if val, ok := g.subscribers.Get(gsub.Channel); ok {
+		subq := val.(*cmap.ConcurrentMap)
+		subq.Remove(gsub.ID)
 	}
 	return nil
 }
@@ -125,10 +97,11 @@ func (g *GoroutineBus) SetLog(l Log) {
 	g.log = l
 }
 
-func (g *GoroutineBus) Publish(roomID string, msg Message) error {
-	if val, ok := g.subscribers.Get(roomID); ok {
-		subq := val.(*subQueue)
-		subq.IterCb(func(id string, ch chan Message) {
+func (g *GoroutineBus) Publish(channel string, msg Message) error {
+	if val, ok := g.subscribers.Get(channel); ok {
+		subq := val.(*cmap.ConcurrentMap)
+		subq.IterCb(func(id string, v interface{}) {
+			ch := v.(chan Message)
 			ch <- msg
 		})
 	} else {
@@ -138,33 +111,31 @@ func (g *GoroutineBus) Publish(roomID string, msg Message) error {
 	return nil
 }
 
-func (g *GoroutineBus) Subscribe(roomID string) (Subscription, error) {
+func (g *GoroutineBus) Subscribe(channel string) (Subscription, error) {
 	ch := make(chan Message)
-	id := xid.New()
-	sub := newGoroutineSubscription(roomID, id.String(), ch)
-	if val, ok := g.subscribers.Get(roomID); ok {
-		subq := val.(*subQueue)
-		subq.Add(sub)
+	id := xid.New().String()
+	sub := NewDefaultSubscription(channel, id, ch)
+	if val, ok := g.subscribers.Get(channel); ok {
+		subMap := val.(*cmap.ConcurrentMap)
+		subMap.Set(id, ch)
 	} else {
-		subq := subQueue{
-			subs: make(map[string]chan Message),
-		}
-		subq.Add(sub)
-		g.subscribers.Set(roomID, &subq)
+		subMap := cmap.New()
+		subMap.Set(id, ch)
+		g.subscribers.Set(channel, &subMap)
 	}
 
 	return sub, nil
 }
 
-func (g *GoroutineBus) Enqueue(roomID string, t Event) {
-	if val, ok := g.queue.Get(roomID); ok {
+func (g *GoroutineBus) Enqueue(channel string, t Event) {
+	if val, ok := g.queue.Get(channel); ok {
 		ch := val.(chan Event)
 		ch <- t
 	}
 }
 
-func (g *GoroutineBus) Dequeue(roomID string) <-chan Event {
+func (g *GoroutineBus) Dequeue(channel string) <-chan Event {
 	ch := make(chan Event)
-	g.queue.Set(roomID, ch)
+	g.queue.Set(channel, ch)
 	return ch
 }

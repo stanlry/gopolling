@@ -118,7 +118,7 @@ func (g *GoPolling) SubscribeListener(roomID string, lf ListenerFunc) {
 }
 
 func (g *GoPolling) Notify(channel string, data interface{}, err error, selector S) error {
-	msg := Message{channel, data, err, selector}
+	msg := Message{g.pubsubPrefix + channel, data, err, selector}
 	if g.buffer != nil {
 		key := bufferKey{channel, selector}
 		hashedKey := getKeyHash(key)

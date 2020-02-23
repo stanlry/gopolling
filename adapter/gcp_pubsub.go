@@ -10,76 +10,12 @@ import (
 	"sync"
 )
 
-const (
-	subPrefix  = "gopolling_sub_"
-	pubSubName = "gopolling_pubsub"
-	queueName  = "gopolling_event_queue"
-)
-
-type elm struct{}
-
-func newClientMap() *clientMap {
-	return &clientMap{
-		store: make(map[string]map[string]elm),
-	}
-}
-
-type clientMap struct {
-	store map[string]map[string]elm
-	m     sync.RWMutex
-}
-
-func (q *clientMap) Add(key, id string) {
-	q.m.Lock()
-	if _, ok := q.store[key]; !ok {
-		q.store[key] = make(map[string]elm)
-	}
-	q.store[key][id] = elm{}
-	q.m.Unlock()
-}
-
-func (q *clientMap) Del(key, id string) {
-	q.m.Lock()
-	if _, ok := q.store[key]; ok {
-		delete(q.store[key], id)
-	}
-	q.m.Unlock()
-}
-
-func (q *clientMap) Get(key string) []string {
-	var rlist []string
-
-	q.m.RLock()
-	if cm, ok := q.store[key]; ok {
-		rlist = make([]string, len(cm))
-		count := 0
-		for i := range cm {
-			rlist[count] = i
-			count++
-		}
-	}
-	q.m.RUnlock()
-
-	return rlist
-}
-
-type gcpSubscription struct {
-	id   string
-	room string
-	ch   chan gopolling.Message
-}
-
-func (g *gcpSubscription) Receive() <-chan gopolling.Message {
-	return g.ch
-}
-
 func NewGCPPubSubAdapter(client *pubsub.Client) *GCPPubSub {
 	p := &GCPPubSub{
-		client:    client,
-		log:       &gopolling.NoOpLog{},
-		cm:        newClientMap(),
-		chanMap:   cmap.New(),
-		listenMap: make(map[string]context.CancelFunc),
+		client:      client,
+		log:         &gopolling.NoOpLog{},
+		subscribers: cmap.New(),
+		listenMap:   make(map[string]context.CancelFunc),
 	}
 	p.start()
 	return p
@@ -89,10 +25,9 @@ type GCPPubSub struct {
 	client *pubsub.Client
 	log    gopolling.Log
 
-	cm        *clientMap
-	chanMap   cmap.ConcurrentMap
-	listenMap map[string]context.CancelFunc
-	m         sync.RWMutex
+	subscribers cmap.ConcurrentMap
+	listenMap   map[string]context.CancelFunc
+	m           sync.RWMutex
 }
 
 func (g *GCPPubSub) start() {
@@ -157,12 +92,12 @@ func (g *GCPPubSub) handleMessage(ctx context.Context, m *pubsub.Message) {
 		return
 	}
 
-	chanIDs := g.cm.Get(msg.Channel)
-	for _, id := range chanIDs {
-		if val, ok := g.chanMap.Get(id); ok {
-			ch := val.(chan gopolling.Message)
+	if val, ok := g.subscribers.Get(msg.Channel); ok {
+		subMap := val.(*cmap.ConcurrentMap)
+		subMap.IterCb(func(_ string, v interface{}) {
+			ch := v.(chan gopolling.Message)
 			ch <- msg
-		}
+		})
 	}
 
 	m.Ack()
@@ -175,12 +110,9 @@ func (g *GCPPubSub) handleEvent(ctx context.Context, m *pubsub.Message) {
 		return
 	}
 
-	chanIDs := g.cm.Get(ev.Channel)
-	for _, id := range chanIDs {
-		if val, ok := g.chanMap.Get(id); ok {
-			ch := val.(chan gopolling.Event)
-			ch <- ev
-		}
+	if val, ok := g.subscribers.Get(ev.Channel); ok {
+		ch := val.(chan gopolling.Event)
+		ch <- ev
 	}
 
 	m.Ack()
@@ -236,25 +168,28 @@ func (g *GCPPubSub) listenToSubscription(ctx context.Context, topicName string, 
 	}
 }
 
-func (g *GCPPubSub) Subscribe(room string) (gopolling.Subscription, error) {
+func (g *GCPPubSub) Subscribe(channel string) (gopolling.Subscription, error) {
 	id := xid.New().String()
 	ch := make(chan gopolling.Message)
-	gSub := gcpSubscription{
-		id:   id,
-		room: room,
-		ch:   ch,
+
+	if val, ok := g.subscribers.Get(channel); ok {
+		subMap := val.(*cmap.ConcurrentMap)
+		subMap.Set(id, ch)
+	} else {
+		ss := cmap.New()
+		ss.Set(id, ch)
+		g.subscribers.Set(channel, &ss)
 	}
 
-	g.chanMap.Set(id, ch)
-	g.cm.Add(room, id)
-
-	return &gSub, nil
+	return gopolling.NewDefaultSubscription(channel, id, ch), nil
 }
 
 func (g *GCPPubSub) Unsubscribe(sub gopolling.Subscription) error {
-	gSub := sub.(*gcpSubscription)
-	g.cm.Del(gSub.room, gSub.id)
-	g.chanMap.Remove(gSub.id)
+	rsub := sub.(*gopolling.DefaultSubscription)
+	if val, ok := g.subscribers.Get(rsub.Channel); ok {
+		subMap := val.(*cmap.ConcurrentMap)
+		subMap.Remove(rsub.ID)
+	}
 	return nil
 }
 
@@ -277,11 +212,8 @@ func (g *GCPPubSub) Enqueue(_ string, event gopolling.Event) {
 }
 
 func (g *GCPPubSub) Dequeue(channel string) <-chan gopolling.Event {
-	id := xid.New().String()
 	ch := make(chan gopolling.Event)
-	g.chanMap.Set(id, ch)
-	g.cm.Add(channel, id)
-
+	g.subscribers.Set(channel, ch)
 	return ch
 }
 

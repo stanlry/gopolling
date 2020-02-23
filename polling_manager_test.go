@@ -91,7 +91,7 @@ func TestPollingManager_ReplyID(t *testing.T) {
 	mockBus.EXPECT().Enqueue(queuePrefix+channel, gomock.Any()).Do(func(roomID string, msg Event) {
 		ch <- Message{Data: data, Selector: S{idKey: msg.Selector[idKey]}}
 	})
-	ch <- Message{Data: data, Selector: S{idKey: "fake id"}}
+	ch <- Message{Data: data, Selector: S{idKey: "fake ID"}}
 
 	val, err := mgr.WaitForNotice(context.TODO(), channel, nil, S{})
 	if val != data || err != nil {

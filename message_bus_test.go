@@ -41,7 +41,7 @@ func TestGoroutineBus_EnqueueDequeue(t *testing.T) {
 func TestGoroutineBus_PublishSubscribe(t *testing.T) {
 	bus := newGoroutineBus()
 
-	channel := "test-channel"
+	channel := "test-Channel"
 	data := "test data"
 
 	var wg sync.WaitGroup

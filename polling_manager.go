@@ -54,7 +54,7 @@ func (m *PollingManager) WaitForNotice(ctx context.Context, channel string, data
 	tick := time.NewTicker(m.timeout)
 	defer tick.Stop()
 
-	// generate event id
+	// generate event ID
 	id := xid.New().String()
 	sel[idKey] = id
 	// enqueue event
@@ -74,7 +74,7 @@ wait:
 	case <-tick.C:
 		return nil, ErrTimeout
 	case msg := <-sub.Receive():
-		// if msg is specified with event id
+		// if msg is specified with event ID
 		if val, ok := msg.Selector[idKey]; ok {
 			if val == id {
 				return msg.Data, msg.Error
