@@ -16,7 +16,7 @@ func TestPollingWithListener(t *testing.T) {
 		if ev.Data != senderData {
 			t.Error("invalid send data")
 		}
-		cb.Reply(receivedData, nil)
+		cb.Reply(receivedData)
 	})
 	time.Sleep(1 * time.Microsecond)
 

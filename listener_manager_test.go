@@ -41,7 +41,7 @@ func TestListenerManager_ListenAndReply(t *testing.T) {
 	bus.EXPECT().Publish(pubsubPrefix+channel, gomock.Any()).Return(nil).Times(2)
 
 	mgr.Subscribe(channel, func(event Event, callback *Callback) {
-		callback.Reply(notifyData, nil)
+		callback.Reply(notifyData)
 	})
 
 	//wg.Add(1)
