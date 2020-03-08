@@ -35,7 +35,7 @@ func main() {
     
     http.HandleFunc("/notify", func(w http.ResponseWriter, r *http.Request) {
         data := r.URL.Query().Get("data")
-        mgr.Notify(channel, data, nil, nil)
+        mgr.Notify(channel, data, nil)
     })
         
     log.Println("start serve on :80")
@@ -107,8 +107,6 @@ mgr.Notify(
     channel,
     // data being sent
     "data to notify client",
-    // error
-    nil,
     // selector that specify the receiving side, if no one match the selector, message will be discarded
     gopolling.S{
         "id": "xxx",
@@ -126,7 +124,7 @@ mgr.SubscribeListener(channel, func(ev gopolling.Event, cb *gopolling.Callback){
 
     // reply to immediately, you can skip this part if no reply is needed
     data := "hi there"
-    cb.Reply(resp, nil)
+    cb.Reply(resp)
 }) 
 ```
 
