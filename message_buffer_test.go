@@ -10,7 +10,7 @@ func TestMemoryBuffer_SaveFind(t *testing.T) {
 
 	key := "tt"
 	data := "test data"
-	buf.Save(key, Message{key, data, nil, nil}, 10)
+	buf.Save(key, Message{key, data, nil}, 10)
 	val, ok := buf.Find(key)
 	if !ok {
 		t.Error("should be able to find the value")
@@ -25,13 +25,13 @@ func TestMemoryBuffer_Timeout(t *testing.T) {
 
 	key := "tt"
 	data := "test data"
-	buf.Save(key, Message{key, data, nil, nil}, 0)
+	buf.Save(key, Message{key, data, nil}, 0)
 	_, ok := buf.Find(key)
 	if ok {
 		t.Error("should not be able find")
 	}
 
-	buf.Save(key, Message{key, data, nil, nil}, 1)
+	buf.Save(key, Message{key, data, nil}, 1)
 	time.Sleep(1100 * time.Millisecond)
 	_, ok = buf.Find(key)
 	if ok {

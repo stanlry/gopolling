@@ -33,11 +33,11 @@ func TestPollingWithNotifier(t *testing.T) {
 
 	go func() {
 		time.Sleep(10 * time.Millisecond)
-		if err := mgr.Notify(channel, data, nil, S{"name": "123"}); err != nil {
+		if err := mgr.Notify(channel, data, S{"name": "123"}); err != nil {
 			t.Error(err)
 			return
 		}
-		if err := mgr.Notify(channel, data, nil, S{"name": "567"}); err != nil {
+		if err := mgr.Notify(channel, data, S{"name": "567"}); err != nil {
 			t.Error(err)
 			return
 		}
@@ -69,7 +69,7 @@ func TestPubPolling(t *testing.T) {
 	}
 
 	time.Sleep(100 * time.Millisecond)
-	if err := mgr.Notify(channel, data, nil, S{}); err != nil {
+	if err := mgr.Notify(channel, data, S{}); err != nil {
 		t.Error(err)
 		return
 	}

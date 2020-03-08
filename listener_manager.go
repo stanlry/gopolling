@@ -13,13 +13,11 @@ func NewCallback() Callback {
 type Callback struct {
 	notified bool
 	data     interface{}
-	err      error
 }
 
 func (r *Callback) Reply(data interface{}, err error) {
 	r.notified = true
 	r.data = data
-	r.err = err
 }
 
 type ListenerFunc func(Event, *Callback)
@@ -51,7 +49,7 @@ func (m *ListenerManager) execListener(channel string, lf ListenerFunc, ev Event
 	lf(ev, &r)
 	if r.notified {
 		pChan := m.pubsubPrefix + channel
-		if err := m.bus.Publish(pChan, Message{pChan, r.data, r.err, ev.Selector}); err != nil {
+		if err := m.bus.Publish(pChan, Message{pChan, r.data, ev.Selector}); err != nil {
 			m.log.Errorf("fail to publish message, Channel: %v", channel)
 		}
 	}

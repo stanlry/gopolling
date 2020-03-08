@@ -54,7 +54,7 @@ func (r *RedisAdapter) listenSubscription(name string) {
 		case redis.Message:
 			var msg gopolling.Message
 			if err := json.Unmarshal(v.Data, &msg); err != nil {
-				msg.Error = err
+				r.log.Errorf("fail to unmarshal message, error: %v", err)
 			}
 
 			if val, ok := r.subscribers.Get(msg.Channel); ok {

@@ -19,7 +19,6 @@ type S map[string]string
 type Message struct {
 	Channel  string
 	Data     interface{}
-	Error    error
 	Selector S
 }
 

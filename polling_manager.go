@@ -77,7 +77,7 @@ wait:
 		// if msg is specified with event ID
 		if val, ok := msg.Selector[idKey]; ok {
 			if val == id {
-				return msg.Data, msg.Error
+				return msg.Data, nil
 			} else {
 				goto wait
 			}
@@ -86,7 +86,7 @@ wait:
 		if !compareSelectors(msg.Selector, sel) {
 			goto wait
 		}
-		return msg.Data, msg.Error
+		return msg.Data, nil
 	}
 }
 

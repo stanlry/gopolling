@@ -78,7 +78,7 @@ func TestGoroutineBus_PublishSubscribe(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	if err := bus.Publish(channel, Message{channel, data, nil, S{}}); err != nil {
+	if err := bus.Publish(channel, Message{channel, data, S{}}); err != nil {
 		t.Error(err)
 	}
 

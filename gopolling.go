@@ -106,7 +106,7 @@ func (g *GoPolling) WaitForSelectedNotice(ctx context.Context, channel string, d
 		key := bufferKey{channel, selector}
 		hashedKey := getKeyHash(key)
 		if val, ok := g.buffer.Find(hashedKey); ok {
-			return val.Data, val.Error
+			return val.Data, nil
 		}
 	}
 
@@ -117,8 +117,8 @@ func (g *GoPolling) SubscribeListener(roomID string, lf ListenerFunc) {
 	g.listenerMgr.Subscribe(roomID, lf)
 }
 
-func (g *GoPolling) Notify(channel string, data interface{}, err error, selector S) error {
-	msg := Message{g.pubsubPrefix + channel, data, err, selector}
+func (g *GoPolling) Notify(channel string, data interface{}, selector S) error {
+	msg := Message{g.pubsubPrefix + channel, data, selector}
 	if g.buffer != nil {
 		key := bufferKey{channel, selector}
 		hashedKey := getKeyHash(key)
