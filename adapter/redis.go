@@ -6,30 +6,30 @@ import (
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/rs/xid"
 	"github.com/stanlry/gopolling"
-	"time"
 )
 
-func NewRedisAdapter(uri, password string) *RedisAdapter {
+func NewRedisAdapter(pool *redis.Pool) *RedisAdapter {
 	ad := RedisAdapter{
 		pubsubName:  pubSubName,
 		subscribers: cmap.New(),
 		log:         &gopolling.NoOpLog{},
 	}
 
-	ad.pool = &redis.Pool{
-		MaxIdle:     1,
-		MaxActive:   100,
-		IdleTimeout: 5 * time.Minute,
-		Dial: func() (redis.Conn, error) {
-			option := redis.DialPassword(password)
-			con, err := redis.Dial("tcp", uri, option)
-			if err != nil {
-				ad.log.Errorf("fail to connect to redis, error: %v", err)
-				return nil, err
-			}
-			return con, err
-		},
-	}
+	ad.pool = pool
+	//ad.pool = &redis.Pool{
+	//	MaxIdle:     1,
+	//	MaxActive:   100,
+	//	IdleTimeout: 5 * time.Minute,
+	//	Dial: func() (redis.Conn, error) {
+	//		option := redis.DialPassword(password)
+	//		con, err := redis.Dial("tcp", uri, option)
+	//		if err != nil {
+	//			ad.log.Errorf("fail to connect to redis, error: %v", err)
+	//			return nil, err
+	//		}
+	//		return con, err
+	//	},
+	//}
 
 	go ad.listenSubscription(ad.pubsubName)
 	return &ad
@@ -44,13 +44,14 @@ type RedisAdapter struct {
 }
 
 func (r *RedisAdapter) listenSubscription(name string) {
-	subcon := redis.PubSubConn{Conn: r.pool.Get()}
-	if err := subcon.Subscribe(name); err != nil {
+	subConn := redis.PubSubConn{Conn: r.pool.Get()}
+	if err := subConn.Subscribe(name); err != nil {
 		r.log.Errorf("fail to subscribe to %v, error: %v", name, err)
 	}
+	defer subConn.Close()
 
 	for {
-		switch v := subcon.Receive().(type) {
+		switch v := subConn.Receive().(type) {
 		case redis.Message:
 			var msg gopolling.Message
 			if err := json.Unmarshal(v.Data, &msg); err != nil {
@@ -77,15 +78,15 @@ func (r *RedisAdapter) listenSubscription(name string) {
 
 func (r *RedisAdapter) Publish(_ string, msg gopolling.Message) error {
 	con := r.pool.Get()
+	defer r.closeConn(con)
 
 	st, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
-	if _, err := con.Do("PUBLISH", r.pubsubName, st); err != nil {
-		return err
-	}
-	return con.Close()
+
+	_, err = con.Do("PUBLISH", r.pubsubName, st)
+	return err
 }
 
 func (r *RedisAdapter) Subscribe(channel string) (gopolling.Subscription, error) {
@@ -116,17 +117,18 @@ func (r *RedisAdapter) Unsubscribe(sub gopolling.Subscription) error {
 
 func (r *RedisAdapter) Enqueue(channel string, ev gopolling.Event) {
 	con := r.pool.Get()
+	defer r.closeConn(con)
+
 	data, _ := json.Marshal(ev)
 	if _, err := con.Do("RPUSH", channel, data); err != nil {
 		r.log.Errorf("fail to perform RPUSH, error: %v", err)
-	}
-	if err := con.Close(); err != nil {
-		r.log.Errorf("fail to close redis connection, error: %v", err)
 	}
 }
 
 func (r *RedisAdapter) Dequeue(channel string) <-chan gopolling.Event {
 	con := r.pool.Get()
+	defer r.closeConn(con)
+
 	ch := make(chan gopolling.Event)
 
 	go func() {
@@ -157,16 +159,14 @@ func (r *RedisAdapter) Find(key string) (gopolling.Message, bool) {
 	var msg gopolling.Message
 
 	con := r.pool.Get()
+	defer r.closeConn(con)
+
 	b, err := redis.Bytes(con.Do("GET", key))
 	if err != nil {
 		if err == redis.ErrNil {
 			return msg, false
 		}
 		r.log.Errorf("redis fail to get key, error: %v", err)
-		return msg, false
-	}
-	if err := con.Close(); err != nil {
-		r.log.Errorf("fail to close redis connection, error: %v", err)
 		return msg, false
 	}
 
@@ -180,6 +180,7 @@ func (r *RedisAdapter) Find(key string) (gopolling.Message, bool) {
 
 func (r *RedisAdapter) Save(key string, msg gopolling.Message, t int) {
 	con := r.pool.Get()
+	defer r.closeConn(con)
 
 	st, err := json.Marshal(msg)
 	if err != nil {
@@ -190,7 +191,10 @@ func (r *RedisAdapter) Save(key string, msg gopolling.Message, t int) {
 		r.log.Errorf("redis fail to setex, error: %v", err)
 		return
 	}
-	if err := con.Close(); err != nil {
+}
+
+func (r *RedisAdapter) closeConn(conn redis.Conn) {
+	if err := conn.Close(); err != nil {
 		r.log.Errorf("fail to close redis connection, error: %v", err)
 	}
 }
