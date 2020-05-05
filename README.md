@@ -62,10 +62,10 @@ var mgr = gopolling.New(gopolling.Option{
     Timeout: 1 * time.Minute,  
 
     // message bus, default use goroutine
-    Bus: adapter.NewRedisAdapter(":6379", "password"), 
+    Bus: adapter.NewRedisAdapter(pool),
 
     // message buffer, default use memory
-    Buffer: adapter.NewRedisAdapter(":6379", "password"), 
+    Buffer: adapter.NewRedisAdapter(pool),
 
     // logger interface, currently support zap and logrus, default will not log any error
     Logger: zap.NewExample().Sugar(), 
@@ -94,7 +94,6 @@ resp, err := mgr.WaitForSelectedNotice(
     // specify identity in the channel, this selector is essential a string map
     gopolling.S{
         "id": "xxx",
-        "name": "xxx",
     }
 )
 ```
@@ -106,7 +105,7 @@ mgr.Notify(
     // channel
     channel,
     // data being sent
-    "data to notify client",
+    "data",
     // selector that specify the receiving side, if no one match the selector, message will be discarded
     gopolling.S{
         "id": "xxx",
@@ -123,8 +122,7 @@ mgr.SubscribeListener(channel, func(ev gopolling.Event, cb *gopolling.Callback){
     st := ev.Data.(string)
 
     // reply to immediately, you can skip this part if no reply is needed
-    data := "hi there"
-    cb.Reply(resp)
+    cb.Reply("reply data")
 }) 
 ```
 
@@ -133,7 +131,21 @@ mgr.SubscribeListener(channel, func(ev gopolling.Event, cb *gopolling.Callback){
 #### Redis
 Redis is supported for both message bus and message buffer
 ```go
-adapter := adapter.NewRedisAdapter("host:port", "password")
+pool := &redis.Pool{
+	MaxIdle:     1,
+	MaxActive:   100,
+	IdleTimeout: 5 * time.Minute,
+	Dial: func() (redis.Conn, error) {
+		option := redis.DialPassword("password")
+		con, err := redis.Dial("tcp", "localhost:6379", option)
+		if err != nil {
+			return nil, err
+		}
+		return con, err
+	},
+}
+
+adapter := adapter.NewRedisAdapter(pool)
 mgr := gopolling.New(gopolling.Option{
     bus:    adapter,
     buffer: adapter,
